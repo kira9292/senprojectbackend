@@ -1,0 +1,79 @@
+{
+  "annotations": {
+    "changelogDate": "20250131163022",
+    "microservice": "SenProjectBackend1"
+  },
+  "applications": "*",
+  "clientRootFolder": "SenProjectBackend1",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "name",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "unique", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "100",
+      "fieldValidateRulesMinlength": "3"
+    },
+    {
+      "fieldName": "description",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "1000"
+    },
+    {
+      "fieldName": "logo",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "visibility",
+      "fieldType": "TeamVisibility",
+      "fieldValues": "VISIBLE,ARCHIVED"
+    },
+    {
+      "fieldName": "totalLikes",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "isDeleted",
+      "fieldType": "Boolean"
+    },
+    {
+      "fieldName": "createdBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "lastUpdatedBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "SenProjectBackend1",
+  "name": "Team",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "userProfile",
+      "relationshipName": "members",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-many"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

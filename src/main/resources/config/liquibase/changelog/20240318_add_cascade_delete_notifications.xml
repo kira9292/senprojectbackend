@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20240318-2" author="jhipster">
+        <!-- Notification -->
+        <dropForeignKeyConstraint baseTableName="notification" constraintName="fk_notification__user_id"/>
+        <addForeignKeyConstraint baseColumnNames="user_id"
+            baseTableName="notification"
+            constraintName="fk_notification__user_id"
+            referencedColumnNames="id"
+            referencedTableName="user_profile"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>

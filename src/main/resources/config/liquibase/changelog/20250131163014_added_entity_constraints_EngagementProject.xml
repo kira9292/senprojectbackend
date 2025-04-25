@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+    <!--
+        Added the constraints for entity EngagementProject.
+    -->
+    <changeSet id="20250131163014-2" author="jhipster">
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="engagement_project"
+                                 constraintName="fk_engagement_project__user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="user_profile"
+                                 />
+
+        <addForeignKeyConstraint baseColumnNames="project_id"
+                                 baseTableName="engagement_project"
+                                 constraintName="fk_engagement_project__project_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="project"
+                                 />
+    </changeSet>
+</databaseChangeLog>

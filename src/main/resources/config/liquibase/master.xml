@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <property name="now" value="current_timestamp" dbms="postgresql"/>
+    <property name="floatType" value="float4" dbms="postgresql"/>
+    <property name="clobType" value="clob" dbms="postgresql"/>
+    <property name="blobType" value="bytea" dbms="postgresql"/>
+    <property name="uuidType" value="uuid" dbms="postgresql"/>
+    <property name="datetimeType" value="datetime" dbms="postgresql"/>
+    <property name="timeType" value="time(6)" dbms="postgresql"/>
+
+    <include file="config/liquibase/changelog/00000000000000_initial_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163013_added_entity_Comment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163014_added_entity_EngagementProject.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163015_added_entity_EngagementTeam.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163016_added_entity_ExternalLink.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163017_added_entity_Project.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163018_added_entity_ProjectGallery.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163019_added_entity_ProjectSection.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163020_added_entity_Role.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163021_added_entity_Tag.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163022_added_entity_Team.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163023_added_entity_UserProfile.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250330205831_added_entity_Notification.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163013_added_entity_constraints_Comment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163014_added_entity_constraints_EngagementProject.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163015_added_entity_constraints_EngagementTeam.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163016_added_entity_constraints_ExternalLink.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163017_added_entity_constraints_Project.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163018_added_entity_constraints_ProjectGallery.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163019_added_entity_constraints_ProjectSection.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163022_added_entity_constraints_Team.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250131163023_added_entity_constraints_UserProfile.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250330205831_added_entity_constraints_Notification.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250330000000_update_rel_team_members.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250407000000_update_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250408000000_update_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20250408000001_update_schema.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20240410000000_drop_user_tables.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20240318_add_cascade_delete_project.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20240318_add_cascade_delete_notifications.xml" relativeToChangelogFile="false"/>
+    <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
+</databaseChangeLog>

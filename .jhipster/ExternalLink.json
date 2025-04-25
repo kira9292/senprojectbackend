@@ -1,0 +1,46 @@
+{
+  "annotations": {
+    "changelogDate": "20250131163016",
+    "microservice": "SenProjectBackend1"
+  },
+  "applications": "*",
+  "clientRootFolder": "SenProjectBackend1",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "title",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "150",
+      "fieldValidateRulesMinlength": "3"
+    },
+    {
+      "fieldName": "url",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "type",
+      "fieldType": "LinkType",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "DOCUMENTATION,DEMO,REPOSITORY,WEBSITE,TUTORIAL"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "SenProjectBackend1",
+  "name": "ExternalLink",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "project",
+      "relationshipName": "project",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one",
+      "relationshipValidateRules": "required"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

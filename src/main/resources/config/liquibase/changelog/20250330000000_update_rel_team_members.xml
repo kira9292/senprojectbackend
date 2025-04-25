@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+  <changeSet id="20250330000000-1" author="yourname">
+    <!-- Ajout des colonnes pour le statut et les dates -->
+    <addColumn tableName="rel_team__members">
+      <column name="status" type="varchar(255)" defaultValue="PENDING">
+        <constraints nullable="false"/>
+      </column>
+      <column name="invited_at" type="${datetimeType}" defaultValueComputed="CURRENT_TIMESTAMP">
+        <constraints nullable="false"/>
+      </column>
+      <column name="responded_at" type="${datetimeType}">
+        <constraints nullable="true"/>
+      </column>
+    </addColumn>
+
+    <!-- Création de la table d'énumération pour MembershipStatus si nécessaire -->
+    <createTable tableName="membership_status" remarks="Enumération des statuts d'adhésion">
+      <column name="id" type="varchar(255)">
+        <constraints primaryKey="true" nullable="false"/>
+      </column>
+      <column name="description" type="varchar(255)"/>
+    </createTable>
+
+    <!-- Insertion des valeurs d'énumération -->
+    <insert tableName="membership_status">
+      <column name="id" value="PENDING"/>
+      <column name="description" value="Invitation en attente"/>
+    </insert>
+    <insert tableName="membership_status">
+      <column name="id" value="ACCEPTED"/>
+      <column name="description" value="Invitation acceptée"/>
+    </insert>
+    <insert tableName="membership_status">
+      <column name="id" value="REJECTED"/>
+      <column name="description" value="Invitation rejetée"/>
+    </insert>
+
+    <!-- Ajout de contrainte pour vérifier les valeurs de status -->
+    <addForeignKeyConstraint baseColumnNames="status"
+                             baseTableName="rel_team__members"
+                             constraintName="fk_rel_team__members__status"
+                             referencedColumnNames="id"
+                             referencedTableName="membership_status"/>
+  </changeSet>
+</databaseChangeLog>

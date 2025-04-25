@@ -1,0 +1,140 @@
+{
+  "annotations": {
+    "changelogDate": "20250131163017",
+    "microservice": "SenProjectBackend1"
+  },
+  "applications": "*",
+  "clientRootFolder": "SenProjectBackend1",
+  "databaseType": "sql",
+  "dto": "mapstruct",
+  "fields": [
+    {
+      "fieldName": "title",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "150",
+      "fieldValidateRulesMinlength": "3"
+    },
+    {
+      "fieldName": "description",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "minlength", "maxlength"],
+      "fieldValidateRulesMaxlength": "2000",
+      "fieldValidateRulesMinlength": "10"
+    },
+    {
+      "fieldName": "showcase",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "status",
+      "fieldType": "ProjectStatus",
+      "fieldValidateRules": ["required"],
+      "fieldValues": "PLANNING,WAITING_VALIDATION,PUBLISHED,ARCHIVED,DELETED"
+    },
+    {
+      "fieldName": "createdAt",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "updatedAt",
+      "fieldType": "Instant"
+    },
+    {
+      "fieldName": "githubUrl",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "websiteUrl",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "demoUrl",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "255"
+    },
+    {
+      "fieldName": "openToCollaboration",
+      "fieldType": "Boolean"
+    },
+    {
+      "fieldName": "openToFunding",
+      "fieldType": "Boolean"
+    },
+    {
+      "fieldName": "type",
+      "fieldType": "ProjectType",
+      "fieldValues": "ENTREPRISE,STARTUP,COMPETITION,RESEARCH,PERSONAL,SCHOOL"
+    },
+    {
+      "fieldName": "totalLikes",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "totalShares",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "totalViews",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "totalComments",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "totalFavorites",
+      "fieldType": "Integer"
+    },
+    {
+      "fieldName": "isDeleted",
+      "fieldType": "Boolean"
+    },
+    {
+      "fieldName": "createdBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "lastUpdatedBy",
+      "fieldType": "String",
+      "fieldValidateRules": ["maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    }
+  ],
+  "jpaMetamodelFiltering": true,
+  "microserviceName": "SenProjectBackend1",
+  "name": "Project",
+  "pagination": "pagination",
+  "relationships": [
+    {
+      "otherEntityName": "team",
+      "relationshipName": "team",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-one"
+    },
+    {
+      "otherEntityName": "userProfile",
+      "relationshipName": "favoritedby",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-many"
+    },
+    {
+      "otherEntityName": "tag",
+      "relationshipName": "tags",
+      "relationshipSide": "left",
+      "relationshipType": "many-to-many"
+    }
+  ],
+  "searchEngine": "no",
+  "service": "serviceImpl"
+}

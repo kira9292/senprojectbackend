@@ -1,0 +1,211 @@
+@microservice(SenProjectBackend1)
+entity UserProfile {
+  id String required
+  login String required minlength(1) maxlength(50)
+  firstName String maxlength(50)
+  lastName String maxlength(50)
+  email String required minlength(5) maxlength(254)
+  imageUrl String maxlength(256)
+  activated Boolean required
+  langKey String maxlength(6)
+  createdBy String maxlength(50)
+  createdDate Instant required
+  lastModifiedBy String maxlength(50)
+  lastModifiedDate Instant
+  profileLink String maxlength(255)
+  biography String maxlength(1000)
+  birthDate Instant
+  job String maxlength(100)
+  sexe Genre
+}
+
+enum Genre{
+  HOMME
+  FEMME
+}
+
+@microservice(SenProjectBackend1)
+entity Team {
+  name String required unique minlength(3) maxlength(100)
+  description String maxlength(1000)
+  logo String maxlength(255)
+  createdAt Instant required
+  updatedAt Instant
+  visibility TeamVisibility
+  totalLikes Integer
+  isDeleted Boolean
+  createdBy String maxlength(100)
+  lastUpdatedBy String maxlength(100)
+}
+
+enum TeamVisibility {
+  VISIBLE,
+  ARCHIVED
+}
+@microservice(SenProjectBackend1)
+entity Notification {
+  content String required
+  createdAt Instant required
+  readAt Instant
+  type NotificationType required
+  entityId String // ID de l'entité concernée (team, projet, etc.)
+  action String
+}
+
+enum NotificationType {
+  // team Notifications
+  TEAM_INVITATION,
+  TEAM_JOINED,
+  TEAM_REJECTED,
+  TEAM_LEFT,
+  // project Notifications
+  PROJECT_APPROVED,
+  PROJECT_REJECTED,
+  PROJECT_DELETED,
+  PROJECT_UPDATED,
+  PROJECT_COMMENT,
+  // user Notifications
+  SYSTEM,
+  HEARTBEAT,
+  INFO,
+  WARNING,
+}
+
+@microservice(SenProjectBackend1)
+entity Project {
+  title String required minlength(3) maxlength(150)
+  description String required minlength(10) maxlength(2000)
+  showcase String maxlength(255)
+  status ProjectStatus required
+  createdAt Instant required
+  updatedAt Instant
+  githubUrl String maxlength(255)
+  websiteUrl String maxlength(255)
+  demoUrl String maxlength(255)
+  openToCollaboration Boolean
+  openToFunding Boolean
+  type ProjectType
+  totalLikes Integer
+  totalShares Integer
+  totalViews Integer
+  totalComments Integer
+  totalFavorites Integer
+  isDeleted Boolean
+  createdBy String maxlength(100)
+  lastUpdatedBy String maxlength(100)
+}
+
+enum ProjectType {
+  ENTREPRISE,
+  STARTUP,
+  COMPETITION,
+  RESEARCH,
+  PERSONAL,
+  SCHOOL
+}
+
+enum ProjectStatus {
+  PLANNING,
+  WAITING_VALIDATION,
+  PUBLISHED,
+  ARCHIVED,
+  DELETED
+}
+
+@microservice(SenProjectBackend1)
+entity ProjectSection {
+  title String required minlength(3) maxlength(150)
+  content String required minlength(10) maxlength(5000)
+  mediaUrl String maxlength(255)
+  order Integer required
+}
+
+@microservice(SenProjectBackend1)
+entity ProjectGallery {
+  imageUrl String required maxlength(255)
+  description String maxlength(500)
+  order Integer required
+}
+
+@microservice(SenProjectBackend1)
+entity ExternalLink {
+  title String required minlength(3) maxlength(150)
+  url String required maxlength(255)
+  type LinkType required
+}
+
+enum LinkType {
+  DOCUMENTATION,
+  DEMO,
+  REPOSITORY,
+  WEBSITE,
+  TUTORIAL
+}
+
+@microservice(SenProjectBackend1)
+entity Comment {
+  content String required maxlength(1000)
+  createdAt Instant required
+  updatedAt Instant
+  status CommentStatus required
+}
+
+enum CommentStatus {
+  ACTIVE,
+  EDITED,
+  DELETED
+}
+
+@microservice(SenProjectBackend1)
+entity Tag {
+  name String required unique minlength(2) maxlength(50)
+  color String pattern(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/)
+  isForbidden Boolean
+  createdBy String maxlength(50)
+}
+
+@microservice(SenProjectBackend1)
+entity EngagementProject {
+  type EngagementType required
+  createdAt Instant required
+}
+
+enum EngagementType {
+  LIKE,
+  FAVORITE,
+  SHARE,
+  VIEW
+}
+
+@microservice(SenProjectBackend1)
+entity EngagementTeam {
+  like Integer required
+  createdAt Instant required
+}
+
+relationship ManyToOne {
+  ProjectSection{project required} to Project
+  ProjectGallery{project required} to Project
+  ExternalLink{project required} to Project
+  Project{team} to Team
+  Comment{user} to UserProfile
+  Comment{project} to Project
+  EngagementProject{user} to UserProfile
+  EngagementProject{project} to Project
+  EngagementTeam{team} to Team
+  EngagementTeam{user} to UserProfile
+  Notification{user} to UserProfile
+}
+
+relationship ManyToMany {
+  Project{favoritedby} to UserProfile
+  Project{tags} to Tag
+  Team{members} to UserProfile
+}
+
+
+/* Options globales */
+dto * with mapstruct
+service * with serviceImpl
+paginate * with pagination
+filter *

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20240318-1" author="jhipster">
+        <!-- ExternalLink -->
+        <dropForeignKeyConstraint baseTableName="external_link" constraintName="fk_external_link__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="external_link"
+            constraintName="fk_external_link__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- ProjectSection -->
+        <dropForeignKeyConstraint baseTableName="project_section" constraintName="fk_project_section__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="project_section"
+            constraintName="fk_project_section__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- ProjectGallery -->
+        <dropForeignKeyConstraint baseTableName="project_gallery" constraintName="fk_project_gallery__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="project_gallery"
+            constraintName="fk_project_gallery__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- Comment -->
+        <dropForeignKeyConstraint baseTableName="comment" constraintName="fk_comment__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="comment"
+            constraintName="fk_comment__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- EngagementProject -->
+        <dropForeignKeyConstraint baseTableName="engagement_project" constraintName="fk_engagement_project__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="engagement_project"
+            constraintName="fk_engagement_project__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- Project_favoritedby -->
+        <dropForeignKeyConstraint baseTableName="rel_project__favoritedby" constraintName="fk_rel_project__favoritedby__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="rel_project__favoritedby"
+            constraintName="fk_rel_project__favoritedby__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+
+        <!-- Project_tags -->
+        <dropForeignKeyConstraint baseTableName="rel_project__tags" constraintName="fk_rel_project__tags__project_id"/>
+        <addForeignKeyConstraint baseColumnNames="project_id"
+            baseTableName="rel_project__tags"
+            constraintName="fk_rel_project__tags__project_id"
+            referencedColumnNames="id"
+            referencedTableName="project"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog> 

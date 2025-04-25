@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+  xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+  xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+  <!-- Add action column to notification table -->
+  <changeSet id="20250408000001-3" author="custom">
+    <preConditions onFail="MARK_RAN">
+      <tableExists tableName="notification"/>
+      <not>
+        <columnExists tableName="notification" columnName="action"/>
+      </not>
+    </preConditions>
+    <update tableName="notification">
+      <column name="action" type="TEXT">
+        <constraints nullable="true"/>
+      </column>
+    </update>
+    <comment>Ajout du champ action pour stocker des actions à proposer au frontend (redirection, appel API, etc.)</comment>
+  </changeSet>
+
+</databaseChangeLog>

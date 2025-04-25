@@ -1,0 +1,30 @@
+# This configuration is intended for development purpose, it's **your** responsibility to harden it for production
+name: senprojectbackend1
+services:
+  postgresql:
+    extends:
+      file: ./postgresql.yml
+      service: postgresql
+  keycloak:
+    extends:
+      file: ./keycloak.yml
+      service: keycloak
+  jhipster-registry:
+    extends:
+      file: ./jhipster-registry.yml
+      service: jhipster-registry
+    depends_on:
+      keycloak:
+        condition: service_healthy
+  kafka:
+    extends:
+      file: ./kafka.yml
+      service: kafka
+  kafdrop:
+    extends:
+      file: ./kafdrop.yml
+      service: kafdrop
+  senprojectbackend:
+    image: lyak008/senprojectbackend:latest
+    ports:
+      - '8081:8081'
