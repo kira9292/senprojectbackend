@@ -1,9 +1,14 @@
 package com.senprojectbackend1.service.impl;
 
+import com.senprojectbackend1.domain.TeamMembership;
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
+import com.senprojectbackend1.domain.enumeration.MembershipStatus;
+import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.repository.ProjectRepository;
+import com.senprojectbackend1.repository.TeamMembershipRepository;
 import com.senprojectbackend1.repository.TeamRepository;
 import com.senprojectbackend1.repository.UserProfileRepository;
+import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.TeamService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectSimple2DTO;
@@ -11,7 +16,9 @@ import com.senprojectbackend1.service.dto.TeamDTO;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.TeamMapper;
 import com.senprojectbackend1.service.mapper.UserProfileMapper;
-import java.util.HashSet;
+import com.senprojectbackend1.service.util.NotificationActionUtil;
+import java.time.Instant;
+import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -30,39 +37,47 @@ import reactor.core.publisher.Mono;
 public class TeamServiceImpl implements TeamService {
 
     private static final Logger LOG = LoggerFactory.getLogger(TeamServiceImpl.class);
-
     private final TeamRepository teamRepository;
-
     private final ProjectRepository projectRepository;
-
     private final TeamMapper teamMapper;
-
+    private final NotificationService notificationService;
     private final ProjectMapper projectMapper;
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper userProfileMapper;
     private final UserProfileService userProfileService;
+    private final NotificationActionUtil notificationActionUtil;
+    private final TeamMembershipRepository teamMembershipRepository;
 
     public TeamServiceImpl(
         TeamRepository teamRepository,
         ProjectRepository projectRepository,
         TeamMapper teamMapper,
+        NotificationService notificationService,
         ProjectMapper projectMapper,
         UserProfileRepository userProfileRepository,
         UserProfileMapper userProfileMapper,
-        UserProfileService userProfileService
+        UserProfileService userProfileService,
+        NotificationActionUtil notificationActionUtil,
+        TeamMembershipRepository teamMembershipRepository
     ) {
         this.teamRepository = teamRepository;
         this.projectRepository = projectRepository;
         this.teamMapper = teamMapper;
+        this.notificationService = notificationService;
         this.projectMapper = projectMapper;
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
         this.userProfileService = userProfileService;
+        this.notificationActionUtil = notificationActionUtil;
+        this.teamMembershipRepository = teamMembershipRepository;
     }
 
     @Override
     public Mono<TeamDTO> save(TeamDTO teamDTO) {
         LOG.debug("Request to save Team : {}", teamDTO);
+        teamDTO.setCreatedAt(Instant.now());
+        teamDTO.setTotalLikes(0);
+        teamDTO.setIsDeleted(false);
         return teamRepository.save(teamMapper.toEntity(teamDTO)).map(teamMapper::toDto);
     }
 
@@ -182,12 +197,230 @@ public class TeamServiceImpl implements TeamService {
                     .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of the team")))
                     .flatMap(status -> {
                         if (!"ACCEPTED".equals(status)) {
-                            return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team"));
+                            return Mono.error(
+                                new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team")
+                            );
                         }
-                        return teamRepository
-                            .updateProjectsForDeletedTeam(teamId)
-                            .then(teamRepository.markTeamAsDeleted(teamId));
+                        return teamRepository.updateProjectsForDeletedTeam(teamId).then(teamRepository.markTeamAsDeleted(teamId));
                     });
             });
+    }
+
+    @Override
+    public Mono<TeamDTO> createTeamWithMembers(TeamDTO teamDTO, List<String> targetLogins) {
+        LOG.debug("Création d'une équipe avec membres : {}", targetLogins);
+        teamDTO.setCreatedAt(Instant.now());
+        teamDTO.setTotalLikes(0);
+        teamDTO.setIsDeleted(false);
+        // Création de l'équipe
+        return teamRepository
+            .save(teamMapper.toEntity(teamDTO))
+            .flatMap(team -> {
+                // Pour chaque login, récupérer le UserProfile et inviter le membre (avec notification)
+                return Flux.fromIterable(targetLogins)
+                    .flatMap(login ->
+                        userProfileRepository
+                            .findOneByLogin(login)
+                            .flatMap(userProfile -> inviteUserToTeam(team.getId(), userProfile.getId(), "MEMBER"))
+                    )
+                    .then(Mono.just(team));
+            })
+            .flatMap(savedTeam -> teamRepository.findOneWithEagerRelationships(savedTeam.getId()))
+            .map(teamMapper::toDto);
+    }
+
+    /**
+     * Invites a user to join a team by creating a notification
+     *
+     * @param teamId The ID of the team
+     * @param userId The ID of the user to invite
+     * @return A Mono containing a boolean indicating success
+     */
+    @Override
+    public Mono<Boolean> inviteUserToTeam(Long teamId, String userId) {
+        return inviteUserToTeam(teamId, userId, null);
+    }
+
+    /**
+     * Invites a user to join a team by creating a notification and a pending relationship
+     *
+     * @param teamId The ID of the team
+     * @param userId The ID of the user to invite
+     * @param role Optional role for the user
+     * @return A Mono containing a boolean indicating success
+     */
+    @Override
+    public Mono<Boolean> inviteUserToTeam(Long teamId, String userId, String role) {
+        LOG.debug("Inviting user {} to team {} with role {}", userId, teamId, role);
+
+        return findOne(teamId)
+            .flatMap(teamDTO -> {
+                String content = "You have been invited to join the team: " + teamDTO.getName();
+                String baseEndpoint = "/api/teams/" + teamId + "/respond";
+
+                // Nouvelle implémentation des actions
+                List<Map<String, Object>> actions = new ArrayList<>();
+
+                // Action Accepter
+                Map<String, Object> acceptPayload = new HashMap<>();
+                acceptPayload.put("userId", userId);
+                acceptPayload.put("accepted", true);
+                actions.add(notificationActionUtil.createApiAction("Accept", baseEndpoint, "POST", acceptPayload));
+
+                // Action Rejeter
+                Map<String, Object> rejectPayload = new HashMap<>();
+                rejectPayload.put("userId", userId);
+                rejectPayload.put("accepted", false);
+                actions.add(notificationActionUtil.createApiAction("Reject", baseEndpoint, "POST", rejectPayload));
+
+                // Convertir en JSON
+                String actionsJson = notificationActionUtil.createActionsJson(actions);
+
+                // Utiliser la méthode addPendingMember du repository
+                Instant invitedAt = Instant.now();
+                return teamMembershipRepository
+                    .addPendingMember(teamId, userId, role, invitedAt)
+                    .flatMap(rowsUpdated -> {
+                        if (rowsUpdated > 0) {
+                            return notificationService
+                                .createNotification(userId, content, NotificationType.TEAM_INVITATION, teamId.toString(), actionsJson)
+                                .map(notification -> true);
+                        } else {
+                            return Mono.just(false);
+                        }
+                    })
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false);
+    }
+
+    /**
+     * Process a user's response to a team invitation
+     *
+     * @param teamId The ID of the team
+     * @param userId The ID of the user
+     * @param accepted Whether the invitation was accepted
+     * @return A Mono containing a boolean indicating success
+     */
+    @Override
+    public Mono<Boolean> processTeamInvitationResponse(Long teamId, String userId, boolean accepted) {
+        NotificationType notificationType = accepted ? NotificationType.TEAM_JOINED : NotificationType.TEAM_REJECTED;
+        MembershipStatus status = accepted ? MembershipStatus.ACCEPTED : MembershipStatus.REJECTED;
+
+        return findOne(teamId)
+            .flatMap(teamDTO -> {
+                String content = accepted
+                    ? "You have joined the team: " + teamDTO.getName()
+                    : "You have declined the invitation to join: " + teamDTO.getName();
+
+                return updateMembershipStatus(teamId, userId, status)
+                    .flatMap(membership -> {
+                        if (accepted) {
+                            // Pour les invitations acceptées, ajouter une action "Quitter l'équipe"
+                            String baseEndpoint = "/api/teams/" + teamId + "/members/" + userId;
+
+                            List<Map<String, Object>> actions = new ArrayList<>();
+                            actions.add(notificationActionUtil.createApiAction("Leave Team", baseEndpoint, "DELETE", null));
+
+                            // Ajouter une action de redirection pour voir l'équipe
+                            actions.add(notificationActionUtil.createRedirectAction("View Team", "/team/" + teamId));
+
+                            String actionsJson = notificationActionUtil.createActionsJson(actions);
+
+                            return notificationService.createNotification(
+                                userId,
+                                content,
+                                notificationType,
+                                teamId.toString(),
+                                actionsJson
+                            );
+                        } else {
+                            // Pour les invitations refusées, pas d'action supplémentaire
+                            return notificationService.createNotification(userId, content, notificationType, teamId.toString(), null);
+                        }
+                    })
+                    .flatMap(notification -> {
+                        // Supprimer la notification d'invitation
+                        return notificationService
+                            .deleteByUserIdAndEntityIdAndType(userId, teamId.toString(), NotificationType.TEAM_INVITATION)
+                            .thenReturn(true);
+                    })
+                    .map(notification -> true)
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false);
+    }
+
+    /**
+     * Remove a user from a team
+     *
+     * @param teamId The ID of the team
+     * @param userId The ID of the user
+     * @return A Mono containing a boolean indicating success
+     */
+    @Override
+    public Mono<Boolean> removeUserFromTeam(Long teamId, String userId) {
+        LOG.debug("Removing user {} from team {}", userId, teamId);
+
+        return findOne(teamId)
+            .flatMap(teamDTO -> {
+                String content = "You have been removed from the team: " + teamDTO.getName();
+                return removeMember(teamId, userId).flatMap(removed -> {
+                    if (Boolean.TRUE.equals(removed)) {
+                        return notificationService
+                            .createNotification(userId, content, NotificationType.TEAM_LEFT, teamId.toString())
+                            .map(notification -> true);
+                    }
+                    return Mono.just(false);
+                });
+            })
+            .defaultIfEmpty(false);
+    }
+
+    @Override
+    public Mono<TeamMembership> addPendingMember(Long teamId, String userId) {
+        LOG.debug("Adding pending member {} to team {}", userId, teamId);
+        Instant invitedAt = Instant.now();
+
+        return teamMembershipRepository
+            .addPendingMember(teamId, userId, null, invitedAt)
+            .flatMap(rowsUpdated -> {
+                if (rowsUpdated > 0) {
+                    return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId);
+                } else {
+                    return Mono.empty();
+                }
+            });
+    }
+
+    @Override
+    public Mono<TeamMembership> updateMembershipStatus(Long teamId, String userId, MembershipStatus status) {
+        LOG.debug("Updating membership status for user {} in team {} to {}", userId, teamId, status);
+        Instant respondedAt = Instant.now();
+
+        return teamMembershipRepository
+            .updateMembershipStatus(teamId, userId, status.name(), respondedAt)
+            .flatMap(rowsUpdated -> {
+                if (rowsUpdated > 0) {
+                    // Retourner l'objet TeamMembership mis à jour
+                    return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId);
+                } else {
+                    return Mono.empty();
+                }
+            });
+    }
+
+    @Override
+    public Mono<Boolean> removeMember(Long teamId, String userId) {
+        LOG.debug("Removing member from team: teamId={}, userId={}", teamId, userId);
+        return teamMembershipRepository
+            .deleteByTeamIdAndMembersId(teamId, userId)
+            .map(rowsUpdated -> rowsUpdated > 0)
+            .defaultIfEmpty(false);
+    }
+
+    @Override
+    public Mono<Boolean> isMember(Long teamId, String userId) {
+        return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId).hasElement();
     }
 }

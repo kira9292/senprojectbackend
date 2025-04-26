@@ -1,9 +1,12 @@
 package com.senprojectbackend1.service;
 
 import com.netflix.appinfo.ApplicationInfoManager;
+import com.senprojectbackend1.domain.TeamMembership;
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
+import com.senprojectbackend1.domain.enumeration.MembershipStatus;
 import com.senprojectbackend1.service.dto.ProjectSimple2DTO;
 import com.senprojectbackend1.service.dto.TeamDTO;
+import java.util.List;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -90,4 +93,43 @@ public interface TeamService {
     Mono<TeamDTO> findByProjectId(Long id);
 
     Mono<Void> deleteTeamAndUpdateProjects(Long teamId, String userLogin);
+
+    /**
+     * Crée une équipe et ajoute les membres à partir d'une liste de logins.
+     *
+     * @param teamDTO les infos de l'équipe à créer
+     * @param targetLogins les logins des membres à ajouter
+     * @return l'équipe créée avec les membres
+     */
+    Mono<TeamDTO> createTeamWithMembers(TeamDTO teamDTO, List<String> targetLogins);
+
+    /**
+     * Add a pending member to a team.
+     *
+     * @param teamId the team ID
+     * @param userId the user ID
+     * @return the created membership
+     */
+    Mono<TeamMembership> addPendingMember(Long teamId, String userId);
+
+    /**
+     * Update the membership status of a team member.
+     *
+     * @param teamId the team ID
+     * @param userId the user ID
+     * @return the updated membership
+     */
+    public Mono<Boolean> inviteUserToTeam(Long teamId, String userId);
+
+    public Mono<Boolean> processTeamInvitationResponse(Long teamId, String userId, boolean accepted);
+
+    public Mono<Boolean> inviteUserToTeam(Long teamId, String userId, String role);
+
+    public Mono<Boolean> removeUserFromTeam(Long teamId, String userId);
+
+    Mono<TeamMembership> updateMembershipStatus(Long teamId, String userId, MembershipStatus status);
+
+    Mono<Boolean> removeMember(Long teamId, String userId);
+
+    Mono<Boolean> isMember(Long teamId, String userId);
 }

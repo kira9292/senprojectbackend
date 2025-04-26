@@ -75,15 +75,38 @@ public class TeamResource {
         if (teamDTO.getId() != null) {
             throw new BadRequestAlertException("A new team cannot already have an ID", ENTITY_NAME, "idexists");
         }
+        LOG.debug("Creating team with name: {}", teamDTO.getName());
+        LOG.debug("Creating team with description: {}", teamDTO.getDescription());
+        LOG.debug("Creating team with createdAt: {}", teamDTO.getCreatedAt());
+        LOG.debug("Creating team with updatedAt: {}", teamDTO.getUpdatedAt());
+
+        if (teamDTO.getName() == null || teamDTO.getName().isEmpty()) {
+            throw new BadRequestAlertException("Team name cannot be null or empty", ENTITY_NAME, "nameempty");
+        }
+        if (teamDTO.getName().length() > 50) {
+            throw new BadRequestAlertException("Team name cannot exceed 50 characters", ENTITY_NAME, "nametoolong");
+        }
+        if (teamDTO.getDescription() != null && teamDTO.getDescription().length() > 255) {
+            throw new BadRequestAlertException("Team description cannot exceed 255 characters", ENTITY_NAME, "descriptiontoolong");
+        }
+        if (teamDTO.getCreatedAt() != null) {
+            throw new BadRequestAlertException("Team creation date cannot be set manually", ENTITY_NAME, "createdatset");
+        }
+        if (teamDTO.getUpdatedAt() != null) {
+            throw new BadRequestAlertException("Team update date cannot be set manually", ENTITY_NAME, "updatedatset");
+        }
+
         return teamService
             .save(teamDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/teams/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/teams/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -332,5 +355,37 @@ public class TeamResource {
             .map(securityContext -> securityContext.getAuthentication().getName())
             .flatMap(login -> teamService.deleteTeamAndUpdateProjects(id, login))
             .map(result -> ResponseEntity.ok().build());
+    }
+
+    /**
+     * {@code POST  /teams/create} : Crée une nouvelle équipe et ajoute des membres à partir de logins.
+     *
+     * @param teamDTO les infos de l'équipe à créer
+     * @param targetLogins les logins des membres à ajouter
+     * @return la réponse avec l'équipe créée
+     * @throws URISyntaxException si la syntaxe de l'URI de localisation est incorrecte
+     */
+    @PostMapping("/create")
+    public Mono<ResponseEntity<TeamDTO>> createTeamWithMembers(
+        @Valid @RequestBody TeamDTO teamDTO,
+        @RequestParam List<String> targetLogins
+    ) throws URISyntaxException {
+        LOG.debug("REST request to create Team with members : {}", targetLogins);
+        if (teamDTO.getId() != null) {
+            throw new BadRequestAlertException("A new team cannot already have an ID", ENTITY_NAME, "idexists");
+        }
+        return teamService
+            .createTeamWithMembers(teamDTO, targetLogins)
+            .handle((result, sink) -> {
+                try {
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/teams/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
+                } catch (URISyntaxException e) {
+                    sink.error(new RuntimeException(e));
+                }
+            });
     }
 }

@@ -2,7 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.repository.UserProfileRepository;
 import com.senprojectbackend1.security.SecurityUtils;
-import com.senprojectbackend1.service.TeamMemberService;
+import com.senprojectbackend1.service.TeamService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +17,11 @@ import reactor.core.publisher.Mono;
 public class TeamMembershipResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(TeamMembershipResource.class);
-    private final TeamMemberService teamMemberService;
+    private final TeamService teamService;
     private final UserProfileRepository userProfileRepository;
 
-    public TeamMembershipResource(TeamMemberService teamMemberService, UserProfileRepository userProfileRepository) {
-        this.teamMemberService = teamMemberService;
+    public TeamMembershipResource(TeamService teamService, UserProfileRepository userProfileRepository) {
+        this.teamService = teamService;
         this.userProfileRepository = userProfileRepository;
     }
 
@@ -41,7 +41,7 @@ public class TeamMembershipResource {
         @RequestParam(required = false) String role
     ) {
         LOG.debug("REST request to invite user {} to team {} with role {}", userId, teamId, role);
-        return teamMemberService
+        return teamService
             .inviteUserToTeam(teamId, userId, role)
             .map(result -> {
                 if (Boolean.TRUE.equals(result)) {
@@ -70,7 +70,7 @@ public class TeamMembershipResource {
                 userProfileRepository
                     .findOneByLogin(login)
                     .flatMap(user ->
-                        teamMemberService
+                        teamService
                             .processTeamInvitationResponse(teamId, user.getId(), accepted)
                             .map(result -> {
                                 if (Boolean.TRUE.equals(result)) {
@@ -96,7 +96,7 @@ public class TeamMembershipResource {
     public Mono<ResponseEntity<Boolean>> removeTeamMember(@PathVariable Long teamId, @PathVariable String userId) {
         LOG.debug("REST request to remove user {} from team {}", userId, teamId);
 
-        return teamMemberService
+        return teamService
             .removeUserFromTeam(teamId, userId)
             .map(result -> {
                 if (Boolean.TRUE.equals(result)) {

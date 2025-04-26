@@ -26,7 +26,6 @@ public class TeamDTO implements Serializable {
     @Size(max = 255)
     private String logo;
 
-    @NotNull(message = "must not be null")
     private Instant createdAt;
 
     private Instant updatedAt;
