@@ -297,21 +297,29 @@ public class TeamResource {
             .map(Authentication::getName)
             .flatMap(userProfileService::getUserProfileSimpleByLogin)
             .flatMap(user ->
-                // First check if user is member of this team
                 teamService
                     .findOneByIdAndMemberLogin(id, user.getLogin())
                     .flatMap(team ->
-                        // If team found, enrich with projects data
                         teamService
-                            .getTeamProjects(id)
-                            .collectList()
+                            .getMemberRole(id, user.getId())
+                            .flatMap(role -> {
+                                boolean canSeeAll = "LEAD".equals(role) || "MODIFY".equals(role) || "READ".equals(role);
+                                if (canSeeAll) {
+                                    return teamService.getTeamProjects(id).collectList();
+                                } else {
+                                    // Filtrer uniquement les projets published
+                                    return teamService
+                                        .getTeamProjects(id)
+                                        .filter(p -> p.getStatus() != null && p.getStatus().equals("PUBLISHED"))
+                                        .collectList();
+                                }
+                            })
                             .map(projects -> {
                                 TeamDetailsDTO detailsDTO = new TeamDetailsDTO(team);
                                 detailsDTO.setProjects(new HashSet<>(projects));
-                                return detailsDTO;
+                                return ResponseEntity.ok(detailsDTO);
                             })
                     )
-                    .map(ResponseEntity::ok)
             )
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }

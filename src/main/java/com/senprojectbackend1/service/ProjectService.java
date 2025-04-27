@@ -168,4 +168,6 @@ public interface ProjectService {
     Mono<Boolean> isFavorite(Long id, String login);
 
     Mono<Void> markProjectAsDeleted(Long id, String userLogin);
+
+    Mono<ProjectDTO> changeProjectStatus(Long projectId, String newStatus, String userLogin);
 }

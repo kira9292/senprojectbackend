@@ -2,18 +2,15 @@ package com.senprojectbackend1.service.impl;
 
 import com.senprojectbackend1.domain.EngagementProject;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
-import com.senprojectbackend1.domain.enumeration.CommentStatus;
 import com.senprojectbackend1.domain.enumeration.EngagementType;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.*;
-import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.CommentService;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.TagService;
 import com.senprojectbackend1.service.UserProfileService;
-import com.senprojectbackend1.service.dto.CommentDTO;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
@@ -22,6 +19,7 @@ import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.service.mapper.UserProfileMapper;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -52,8 +50,6 @@ public class ProjectServiceImpl implements ProjectService {
     private final UserProfileRepository userProfileRepository;
     private final NotificationService notificationService;
     private final TeamMembershipRepository teamMembershipRepository;
-    private final CommentService commentService;
-    private final UserProfileMapper userProfileMapper;
     private final UserProfileService userProfileService;
     private final EngagementProjectRepository engagementProjectRepository;
     private final TagService tagService;
@@ -69,12 +65,11 @@ public class ProjectServiceImpl implements ProjectService {
         UserProfileRepository userProfileRepository,
         NotificationService notificationService,
         TeamMembershipRepository teamMembershipRepository,
-        CommentService commentService,
-        UserProfileMapper userProfileMapper,
         UserProfileService userProfileService,
         EngagementProjectRepository engagementProjectRepository,
         TagService tagService,
-        TeamRepository teamRepository) {
+        TeamRepository teamRepository
+    ) {
         this.projectRepository = projectRepository;
         this.projectSectionRepository = projectSectionRepository;
         this.projectMapper = projectMapper;
@@ -84,8 +79,6 @@ public class ProjectServiceImpl implements ProjectService {
         this.userProfileRepository = userProfileRepository;
         this.notificationService = notificationService;
         this.teamMembershipRepository = teamMembershipRepository;
-        this.commentService = commentService;
-        this.userProfileMapper = userProfileMapper;
         this.userProfileService = userProfileService;
         this.engagementProjectRepository = engagementProjectRepository;
         this.tagService = tagService;
@@ -439,14 +432,77 @@ public class ProjectServiceImpl implements ProjectService {
                         }
                         return teamRepository
                             .findMemberStatus(project.getTeam().getId(), userProfile.getId())
-                            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of the team")))
+                            .switchIfEmpty(
+                                Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of the team"))
+                            )
                             .flatMap(status -> {
                                 if (!"ACCEPTED".equals(status)) {
-                                    return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team"));
+                                    return Mono.error(
+                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team")
+                                    );
                                 }
                                 return projectRepository.updateProjectStatusToDeleted(id);
                             });
                     });
+            });
+    }
+
+    @Override
+    public Mono<ProjectDTO> changeProjectStatus(Long projectId, String newStatus, String userLogin) {
+        return projectRepository
+            .findById(projectId)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Projet introuvable")))
+            .flatMap(project -> {
+                if (project.getTeamId() == null) {
+                    return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projet sans équipe"));
+                }
+                return userProfileRepository
+                    .findOneByLogin(userLogin)
+                    .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found")))
+                    .flatMap(userProfile ->
+                        teamMembershipRepository
+                            .findByTeamIdAndUserId(project.getTeamId(), userProfile.getId())
+                            .switchIfEmpty(
+                                Mono.error(
+                                    new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas membre de l'équipe du projet")
+                                )
+                            )
+                            .flatMap(membership -> {
+                                if (!"ACCEPTED".equals(membership.getStatus())) {
+                                    return Mono.error(
+                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous devez être membre accepté de l'équipe")
+                                    );
+                                }
+                                String role = membership.getRole();
+                                if ("PUBLISHED".equalsIgnoreCase(newStatus)) {
+                                    return com.senprojectbackend1.security.SecurityUtils.hasCurrentUserAnyOfAuthorities(
+                                        "ROLE_ADMIN",
+                                        "ROLE_SUPPORT"
+                                    ).flatMap(isAdminOrSupport -> {
+                                        if (!isAdminOrSupport) {
+                                            return Mono.error(
+                                                new ResponseStatusException(
+                                                    HttpStatus.FORBIDDEN,
+                                                    "Seuls les admins/support peuvent publier"
+                                                )
+                                            );
+                                        }
+                                        project.setStatus(com.senprojectbackend1.domain.enumeration.ProjectStatus.valueOf(newStatus));
+                                        return projectRepository.save(project).map(projectMapper::toDto);
+                                    });
+                                } else if (!"LEAD".equals(role) && !"MODIFY".equals(role)) {
+                                    return Mono.error(
+                                        new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Seuls les LEAD ou MODIFY peuvent changer le statut"
+                                        )
+                                    );
+                                }
+                                // Appliquer le changement
+                                project.setStatus(com.senprojectbackend1.domain.enumeration.ProjectStatus.valueOf(newStatus));
+                                return projectRepository.save(project).map(projectMapper::toDto);
+                            })
+                    );
             });
     }
 }

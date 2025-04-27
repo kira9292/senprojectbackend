@@ -145,7 +145,16 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Flux<TeamDTO> findAllByMemberLogin(String login) {
         LOG.debug("Request to find all teams for user {}", login);
-        return teamRepository.findAllByMembers_Login(login).map(teamMapper::toDto).flatMap(this::enrichTeamWithMembers);
+        return teamRepository
+            .findAllByMembers_Login(login)
+            .map(teamMapper::toDto)
+            .flatMap(this::enrichTeamWithMembers)
+            .filter(team ->
+                team
+                    .getMembers()
+                    .stream()
+                    .anyMatch(m -> m.getStatus() != null && m.getStatus().equals("ACCEPTED") && m.getLogin().equals(login))
+            );
     }
 
     private Mono<TeamDTO> enrichTeamWithMembers(TeamDTO team) {

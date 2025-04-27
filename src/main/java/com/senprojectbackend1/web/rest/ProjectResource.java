@@ -30,7 +30,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -369,5 +371,17 @@ public class ProjectResource {
             .map(securityContext -> securityContext.getAuthentication().getName())
             .flatMap(login -> projectService.markProjectAsDeleted(id, login))
             .then(Mono.fromCallable(() -> ResponseEntity.ok().build()));
+    }
+
+    /**
+     * PATCH /projects/{id}/status : Change le statut d'un projet (règles : membre accepté, rôle LEAD/MODIFY, seul admin/support pour PUBLISHED)
+     */
+    @PatchMapping("/{id}/status")
+    public Mono<ResponseEntity<ProjectDTO>> changeProjectStatus(@PathVariable Long id, @RequestParam String newStatus) {
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .map(Authentication::getName)
+            .flatMap(login -> projectService.changeProjectStatus(id, newStatus, login))
+            .map(ResponseEntity::ok);
     }
 }
