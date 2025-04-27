@@ -20,7 +20,7 @@ public class TeamDetailsDTO extends TeamDTO {
         this.setIsDeleted(team.getIsDeleted());
         this.setCreatedBy(team.getCreatedBy());
         this.setLastUpdatedBy(team.getLastUpdatedBy());
-        this.setMembers(team.getMembers()); // Copie les membres si déjà chargés
+        this.setMembers(team.getMembers());
     }
 
     // Getters et setters pour projects

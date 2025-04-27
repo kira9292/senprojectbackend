@@ -353,8 +353,24 @@ public class TeamResource {
         LOG.debug("REST request to delete Team and update its projects : {}", id);
         return ReactiveSecurityContextHolder.getContext()
             .map(securityContext -> securityContext.getAuthentication().getName())
-            .flatMap(login -> teamService.deleteTeamAndUpdateProjects(id, login))
-            .map(result -> ResponseEntity.ok().build());
+            .flatMap(login ->
+                userProfileService
+                    .getUserProfileSimpleByLogin(login)
+                    .flatMap(user ->
+                        teamService
+                            .getMemberRole(id, user.getId())
+                            .flatMap(role -> {
+                                if (!"LEAD".equals(role)) {
+                                    return Mono.error(
+                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "Seul un LEAD peut supprimer l'équipe")
+                                    );
+                                }
+                                return teamService
+                                    .deleteTeamAndUpdateProjects(id, login)
+                                    .then(Mono.just(ResponseEntity.noContent().build()));
+                            })
+                    )
+            );
     }
 
     /**
@@ -387,5 +403,63 @@ public class TeamResource {
                     sink.error(new RuntimeException(e));
                 }
             });
+    }
+
+    /**
+     * {@code PATCH  /teams/{teamId}/members/{userId}/role} : Change le rôle d'un membre d'une équipe.
+     * Seul un membre avec le rôle "LEAD" peut modifier les rôles, et il doit toujours rester au moins un LEAD.
+     */
+    @PatchMapping("/{teamId}/members/{userId}/role")
+    public Mono<ResponseEntity<Void>> changeMemberRole(
+        @PathVariable Long teamId,
+        @PathVariable String userId,
+        @RequestParam String newRole
+    ) {
+        // Vérifier que le demandeur est LEAD
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .map(Authentication::getName)
+            .flatMap(login -> userProfileService.getUserProfileSimpleByLogin(login))
+            .flatMap(currentUser ->
+                teamService
+                    .isMember(teamId, currentUser.getId())
+                    .flatMap(isMember -> {
+                        if (!isMember) return Mono.error(
+                            new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas membre de cette équipe")
+                        );
+                        // Vérifier le rôle du demandeur
+                        return teamService
+                            .getMemberRole(teamId, currentUser.getId())
+                            .flatMap(role -> {
+                                if (!"LEAD".equals(role)) {
+                                    return Mono.error(
+                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "Seul un LEAD peut modifier les rôles")
+                                    );
+                                }
+                                // Vérifier qu'on ne retire pas le dernier LEAD
+                                if ("LEAD".equals(newRole)) {
+                                    return teamService
+                                        .changeMemberRole(teamId, userId, newRole)
+                                        .then(Mono.just(ResponseEntity.<Void>ok().build()));
+                                } else {
+                                    return teamService
+                                        .countLeads(teamId)
+                                        .flatMap(countLeads -> {
+                                            if (countLeads <= 1 && userId.equals(currentUser.getId())) {
+                                                return Mono.error(
+                                                    new ResponseStatusException(
+                                                        HttpStatus.BAD_REQUEST,
+                                                        "Il doit rester au moins un LEAD dans l'équipe"
+                                                    )
+                                                );
+                                            }
+                                            return teamService
+                                                .changeMemberRole(teamId, userId, newRole)
+                                                .then(Mono.just(ResponseEntity.<Void>ok().build()));
+                                        });
+                                }
+                            });
+                    })
+            );
     }
 }

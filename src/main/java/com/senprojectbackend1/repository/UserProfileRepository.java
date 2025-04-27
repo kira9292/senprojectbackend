@@ -44,7 +44,7 @@ public interface UserProfileRepository extends R2dbcRepository<UserProfile, Stri
     @Override
     Mono<Void> update(UserProfile userProfile);
 
-    @Query("SELECT u.* FROM user_profile u " + "JOIN rel_team__members rtm ON u.id = rtm.members_id " + "WHERE rtm.team_id = :teamId")
+    @Query("SELECT u.* FROM user_profile u JOIN rel_team__members rtm ON u.id = rtm.members_id WHERE rtm.team_id = :teamId")
     Flux<UserProfile> findTeamMembersByTeamId(@Param("teamId") Long teamId);
 }
 

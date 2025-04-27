@@ -4,6 +4,7 @@ import com.senprojectbackend1.domain.TeamMembership;
 import java.time.Instant;
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Mono;
@@ -34,4 +35,10 @@ public interface TeamMembershipRepository extends ReactiveCrudRepository<TeamMem
         "WHERE team_id = :teamId AND members_id = :userId"
     )
     Mono<Integer> updateMembershipStatus(Long teamId, String userId, String status, Instant respondedAt);
+
+    @Query("UPDATE rel_team__members SET role = :newRole WHERE team_id = :teamId AND members_id = :userId")
+    Mono<Void> updateMemberRole(@Param("teamId") Long teamId, @Param("userId") String userId, @Param("newRole") String newRole);
+
+    @Query("SELECT COUNT(*) FROM rel_team__members WHERE team_id = :teamId AND role = :role")
+    Mono<Long> countByTeamIdAndRole(@Param("teamId") Long teamId, @Param("role") String role);
 }

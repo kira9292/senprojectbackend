@@ -42,7 +42,7 @@ public class TeamDTO implements Serializable {
     @Size(max = 100)
     private String lastUpdatedBy;
 
-    private Set<UserProfileSimpleDTO> members = new HashSet<>();
+    private Set<TeamMemberDetailsDTO> members = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -132,11 +132,11 @@ public class TeamDTO implements Serializable {
         this.lastUpdatedBy = lastUpdatedBy;
     }
 
-    public Set<UserProfileSimpleDTO> getMembers() {
+    public Set<TeamMemberDetailsDTO> getMembers() {
         return members;
     }
 
-    public void setMembers(Set<UserProfileSimpleDTO> members) {
+    public void setMembers(Set<TeamMemberDetailsDTO> members) {
         this.members = members;
     }
 

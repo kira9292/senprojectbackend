@@ -132,4 +132,10 @@ public interface TeamService {
     Mono<Boolean> removeMember(Long teamId, String userId);
 
     Mono<Boolean> isMember(Long teamId, String userId);
+
+    Mono<String> getMemberRole(Long teamId, String userId);
+
+    Mono<Void> changeMemberRole(Long teamId, String userId, String newRole);
+
+    Mono<Long> countLeads(Long teamId);
 }

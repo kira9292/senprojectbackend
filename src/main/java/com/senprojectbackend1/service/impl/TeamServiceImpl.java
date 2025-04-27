@@ -13,6 +13,8 @@ import com.senprojectbackend1.service.TeamService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectSimple2DTO;
 import com.senprojectbackend1.service.dto.TeamDTO;
+import com.senprojectbackend1.service.dto.TeamMemberDetailsDTO;
+import com.senprojectbackend1.service.dto.UserProfileSimpleDTO;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.TeamMapper;
 import com.senprojectbackend1.service.mapper.UserProfileMapper;
@@ -149,7 +151,14 @@ public class TeamServiceImpl implements TeamService {
     private Mono<TeamDTO> enrichTeamWithMembers(TeamDTO team) {
         return userProfileRepository
             .findTeamMembersByTeamId(team.getId())
-            .map(userProfileMapper::toSimpleDto)
+            .flatMap(userProfile ->
+                teamMembershipRepository
+                    .findByTeamIdAndUserId(team.getId(), userProfile.getId())
+                    .map(membership -> {
+                        UserProfileSimpleDTO simple = userProfileMapper.toSimpleDto(userProfile);
+                        return new TeamMemberDetailsDTO(simple, membership.getStatus(), membership.getRole());
+                    })
+            )
             .collectList()
             .map(members -> {
                 team.setMembers(new HashSet<>(members));
@@ -422,5 +431,20 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Mono<Boolean> isMember(Long teamId, String userId) {
         return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId).hasElement();
+    }
+
+    @Override
+    public Mono<String> getMemberRole(Long teamId, String userId) {
+        return teamMembershipRepository.findByTeamIdAndUserId(teamId, userId).map(TeamMembership::getRole);
+    }
+
+    @Override
+    public Mono<Void> changeMemberRole(Long teamId, String userId, String newRole) {
+        return teamMembershipRepository.updateMemberRole(teamId, userId, newRole).then();
+    }
+
+    @Override
+    public Mono<Long> countLeads(Long teamId) {
+        return teamMembershipRepository.countByTeamIdAndRole(teamId, "LEAD");
     }
 }
