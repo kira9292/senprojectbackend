@@ -41,4 +41,18 @@ public interface TeamMembershipRepository extends ReactiveCrudRepository<TeamMem
 
     @Query("SELECT COUNT(*) FROM rel_team__members WHERE team_id = :teamId AND role = :role")
     Mono<Long> countByTeamIdAndRole(@Param("teamId") Long teamId, @Param("role") String role);
+
+    @Modifying
+    @Query(
+        "INSERT INTO rel_team__members (team_id, members_id, status, role, invited_at, responded_at) " +
+        "VALUES (:teamId, :userId, :status, :role, :invitedAt, :respondedAt)"
+    )
+    Mono<Integer> addMemberWithStatusAndRole(
+        Long teamId,
+        String userId,
+        String status,
+        String role,
+        Instant invitedAt,
+        Instant respondedAt
+    );
 }

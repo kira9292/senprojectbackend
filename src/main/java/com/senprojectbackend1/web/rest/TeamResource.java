@@ -384,6 +384,9 @@ public class TeamResource {
     /**
      * {@code POST  /teams/create} : Crée une nouvelle équipe et ajoute des membres à partir de logins.
      *
+     * Le créateur de la requête sera ajouté comme membre LEAD avec statut ACCEPTED (sans notification).
+     * Les autres logins seront ajoutés comme membres READ avec statut PENDING (et recevront une notification d'invitation).
+     *
      * @param teamDTO les infos de l'équipe à créer
      * @param targetLogins les logins des membres à ajouter
      * @return la réponse avec l'équipe créée
@@ -469,5 +472,44 @@ public class TeamResource {
                             });
                     })
             );
+    }
+
+    /**
+     * PATCH /teams/{id}/edit : Met à jour le nom, la description et le logo d'une équipe.
+     *
+     * Seuls les champs name, description et logo sont modifiables via cet endpoint.
+     * Vérifie la validité des champs (nom non vide, longueurs max, etc).
+     *
+     * @param id l'identifiant de l'équipe à modifier
+     * @param teamDTO les champs à mettre à jour (name, description, logo)
+     * @return l'équipe mise à jour ou une erreur de validation
+     */
+    @PatchMapping("/{id}/edit")
+    public Mono<ResponseEntity<TeamDTO>> patchTeamInfo(@PathVariable Long id, @RequestBody TeamDTO teamDTO) {
+        if (teamDTO.getName() != null) {
+            if (teamDTO.getName().isEmpty()) {
+                throw new BadRequestAlertException("Le nom de l'équipe ne peut pas être vide", ENTITY_NAME, "nameempty");
+            }
+            if (teamDTO.getName().length() > 50) {
+                throw new BadRequestAlertException("Le nom de l'équipe ne peut pas dépasser 50 caractères", ENTITY_NAME, "nametoolong");
+            }
+        }
+        if (teamDTO.getDescription() != null && teamDTO.getDescription().length() > 255) {
+            throw new BadRequestAlertException("La description ne peut pas dépasser 255 caractères", ENTITY_NAME, "descriptiontoolong");
+        }
+        if (teamDTO.getLogo() != null && teamDTO.getLogo().length() > 255) {
+            throw new BadRequestAlertException("Le logo ne peut pas dépasser 255 caractères", ENTITY_NAME, "logotoolong");
+        }
+        // On récupère l'équipe existante pour ne mettre à jour que les champs fournis
+        return teamService
+            .findOne(id)
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Équipe non trouvée", ENTITY_NAME, "idnotfound")))
+            .flatMap(existing -> {
+                String name = teamDTO.getName() != null ? teamDTO.getName() : existing.getName();
+                String description = teamDTO.getDescription() != null ? teamDTO.getDescription() : existing.getDescription();
+                String logo = teamDTO.getLogo() != null ? teamDTO.getLogo() : existing.getLogo();
+                return teamService.updateTeamInfo(id, name, description, logo);
+            })
+            .map(ResponseEntity::ok);
     }
 }

@@ -138,4 +138,14 @@ public interface TeamService {
     Mono<Void> changeMemberRole(Long teamId, String userId, String newRole);
 
     Mono<Long> countLeads(Long teamId);
+
+    /**
+     * Met à jour uniquement le nom, la description et le logo d'une équipe.
+     * @param id l'id de l'équipe
+     * @param name le nouveau nom
+     * @param description la nouvelle description
+     * @param logo le nouveau logo
+     * @return Mono<TeamDTO> l'équipe mise à jour
+     */
+    Mono<TeamDTO> updateTeamInfo(Long id, String name, String description, String logo);
 }

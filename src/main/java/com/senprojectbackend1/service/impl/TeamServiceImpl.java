@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -178,7 +179,12 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Mono<TeamDTO> findOneByIdAndMemberLogin(Long id, String login) {
         LOG.debug("Request to find team with id {} for user {}", id, login);
-        return teamRepository.findOneByIdAndMemberLogin(id, login).map(teamMapper::toDto).flatMap(this::enrichTeamWithMembers);
+        return teamRepository
+            .findOneByIdAndMemberLogin(id, login)
+            .filter(Objects::nonNull)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée ou accès refusé")))
+            .map(teamMapper::toDto)
+            .flatMap(this::enrichTeamWithMembers);
     }
 
     @Override
@@ -233,16 +239,39 @@ public class TeamServiceImpl implements TeamService {
         // Création de l'équipe
         return teamRepository
             .save(teamMapper.toEntity(teamDTO))
-            .flatMap(team -> {
-                // Pour chaque login, récupérer le UserProfile et inviter le membre (avec notification)
-                return Flux.fromIterable(targetLogins)
-                    .flatMap(login ->
+            .flatMap(team ->
+                // Récupérer le login du créateur depuis le contexte de sécurité
+                ReactiveSecurityContextHolder.getContext()
+                    .map(ctx -> ctx.getAuthentication().getName())
+                    .flatMap(creatorLogin ->
                         userProfileRepository
-                            .findOneByLogin(login)
-                            .flatMap(userProfile -> inviteUserToTeam(team.getId(), userProfile.getId(), "MEMBER"))
+                            .findOneByLogin(creatorLogin)
+                            .flatMap(creatorProfile ->
+                                // Ajouter le créateur comme LEAD/ACCEPTED sans notification
+                                teamMembershipRepository
+                                    .addMemberWithStatusAndRole(
+                                        team.getId(),
+                                        creatorProfile.getId(),
+                                        "ACCEPTED",
+                                        "LEAD",
+                                        Instant.now(),
+                                        Instant.now()
+                                    )
+                                    .thenReturn(creatorProfile)
+                            )
                     )
-                    .then(Mono.just(team));
-            })
+                    .flatMap(creatorProfile ->
+                        // Ajouter les autres membres comme READ/PENDING avec notification
+                        Flux.fromIterable(targetLogins)
+                            .filter(login -> !login.equals(creatorProfile.getLogin()))
+                            .flatMap(login ->
+                                userProfileRepository
+                                    .findOneByLogin(login)
+                                    .flatMap(userProfile -> inviteUserToTeam(team.getId(), userProfile.getId(), "READ"))
+                            )
+                            .then(Mono.just(team))
+                    )
+            )
             .flatMap(savedTeam -> teamRepository.findOneWithEagerRelationships(savedTeam.getId()))
             .map(teamMapper::toDto);
     }
@@ -455,5 +484,18 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Mono<Long> countLeads(Long teamId) {
         return teamMembershipRepository.countByTeamIdAndRole(teamId, "LEAD");
+    }
+
+    @Override
+    public Mono<TeamDTO> updateTeamInfo(Long id, String name, String description, String logo) {
+        return teamRepository
+            .updateTeamInfo(id, name, description, logo)
+            .flatMap(rows -> {
+                if (rows > 0) {
+                    return teamRepository.findOneWithEagerRelationships(id).map(teamMapper::toDto);
+                } else {
+                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée"));
+                }
+            });
     }
 }
