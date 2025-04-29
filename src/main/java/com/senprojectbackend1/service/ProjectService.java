@@ -189,4 +189,11 @@ public interface ProjectService {
      * @return un Mono contenant une page de ProjectDTO
      */
     Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size);
+
+    /**
+     * Get the top 10 most popular projects based on views, likes and favorites.
+     *
+     * @return a Flux of the most popular projects
+     */
+    Flux<ProjectDTO> getTop10PopularProjects();
 }

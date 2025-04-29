@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -41,5 +42,16 @@ public class HomeResource {
         log.debug("REST request to get paginated Projects - page: {}, size: {}", page, size);
 
         return projectService.getPaginatedProjects(page, size).map(ResponseEntity::ok);
+    }
+
+    /**
+     * {@code GET /projects/popular} : Récupère les 10 projets les plus populaires.
+     *
+     * @return la réponse avec statut {@code 200 (OK)} et la liste des projets populaires dans le corps
+     */
+    @GetMapping("/projects/popular")
+    public Mono<ResponseEntity<Flux<ProjectDTO>>> getTop10PopularProjects() {
+        log.debug("REST request to get top 10 popular projects");
+        return Mono.just(ResponseEntity.ok(projectService.getTop10PopularProjects()));
     }
 }

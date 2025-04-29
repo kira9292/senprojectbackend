@@ -138,6 +138,14 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
 
     @Query("UPDATE project SET status = 'DELETED' WHERE id = :id")
     Mono<Void> updateProjectStatusToDeleted(@Param("id") Long id);
+
+    @Query(
+        "SELECT * FROM project " +
+        "WHERE status = 'PUBLISHED' AND is_deleted = false " +
+        "ORDER BY (total_views + total_likes + total_favorites) DESC " +
+        "LIMIT 10"
+    )
+    Flux<Project> findTop10PopularProjects();
 }
 
 interface ProjectRepositoryInternal {

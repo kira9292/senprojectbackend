@@ -625,6 +625,16 @@ public class ProjectServiceImpl implements ProjectService {
         });
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<ProjectDTO> getTop10PopularProjects() {
+        LOG.debug("Request to get top 10 popular projects");
+        return projectRepository
+            .findTop10PopularProjects()
+            .map(projectMapper::toDto)
+            .doOnNext(project -> LOG.debug("Found popular project: {}", project.getTitle()));
+    }
+
     private Mono<Project> enrichProjectWithAssociations(Project project, ProjectSubmissionDTO dto) {
         Mono<Project> projectMono = Mono.just(project);
         if (dto.getTeamId() != null) {
