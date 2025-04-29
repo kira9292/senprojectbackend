@@ -1,6 +1,7 @@
 package com.senprojectbackend1.service;
 
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
+import com.senprojectbackend1.service.dto.PageDTO;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
 import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
@@ -180,4 +181,12 @@ public interface ProjectService {
      * @return le projet créé ou mis à jour
      */
     Mono<ProjectDTO> submitProject(ProjectSubmissionDTO submissionDTO, String userLogin);
+    /**
+     * Récupère une page de projets.
+     *
+     * @param page numéro de la page (commence à 0)
+     * @param size taille de la page (nombre d'éléments par page)
+     * @return un Mono contenant une page de ProjectDTO
+     */
+    Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size);
 }

@@ -10,19 +10,18 @@ import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.TagService;
 import com.senprojectbackend1.service.UserProfileService;
-import com.senprojectbackend1.service.dto.ProjectDTO;
-import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
-import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
-import com.senprojectbackend1.service.dto.TagDTO;
+import com.senprojectbackend1.service.dto.*;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -597,6 +596,33 @@ public class ProjectServiceImpl implements ProjectService {
             .flatMap(savedProject -> processAllSections(savedProject, submissionDTO).thenReturn(savedProject))
             .flatMap(savedProject -> notifyTeamMembers(savedProject, userLogin, isUpdate).thenReturn(savedProject))
             .map(projectMapper::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size) {
+        LOG.debug("Request to get paginated Projects, page: {}, size: {}", page, size);
+
+        // Créer l'objet Pageable avec les paramètres de pagination
+        Pageable pageable = PageRequest.of(page, size);
+
+        // Récupérer les projets pour la page demandée
+        Mono<java.util.List<ProjectDTO>> projectDTOs = projectRepository
+            .findAllWithEagerRelationships(pageable)
+            .map(projectMapper::toDto)
+            .collectList();
+
+        // Récupérer le nombre total de projets
+        Mono<Long> totalCount = projectRepository.count();
+
+        // Combiner les résultats pour créer la réponse paginée
+        return Mono.zip(projectDTOs, totalCount).map(tuple -> {
+            java.util.List<ProjectDTO> content = tuple.getT1();
+            long total = tuple.getT2();
+            int totalPages = (int) Math.ceil((double) total / size);
+
+            return new PageDTO<>(content != null ? content : new ArrayList<>(), total, totalPages, page, size);
+        });
     }
 
     private Mono<Project> enrichProjectWithAssociations(Project project, ProjectSubmissionDTO dto) {
