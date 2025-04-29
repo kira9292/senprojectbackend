@@ -7,11 +7,12 @@ import java.util.Objects;
 public class TeamMembershipDTO implements Serializable {
 
     private Long teamId;
-    private String userId;
-    private String status; // PENDING, ACCEPTED, REJECTED
+    private String teamName;
     private Instant invitedAt;
     private Instant respondedAt;
-    private String teamName;
+    private String userId;
+    private String status;
+    // PENDING, ACCEPTED, REJECTED
     private String userLogin;
     private String role;
 

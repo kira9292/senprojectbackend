@@ -40,6 +40,8 @@ public class ProjectSubmissionDTO implements Serializable {
 
     private List<ExternalLinkDTO> externalLinks;
 
+    private Long id;
+
     // Getters et setters
     public String getTitle() {
         return title;
@@ -127,6 +129,14 @@ public class ProjectSubmissionDTO implements Serializable {
 
     public void setExternalLinks(List<ExternalLinkDTO> externalLinks) {
         this.externalLinks = externalLinks;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     // Classes imbriquées pour les sous-entités

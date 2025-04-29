@@ -3,6 +3,7 @@ package com.senprojectbackend1.repository;
 import com.senprojectbackend1.domain.ProjectGallery;
 import com.senprojectbackend1.domain.criteria.ProjectGalleryCriteria;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
@@ -34,6 +35,10 @@ public interface ProjectGalleryRepository extends ReactiveCrudRepository<Project
 
     @Override
     Mono<Void> deleteById(Long id);
+
+    @Modifying
+    @Query("DELETE FROM project_gallery WHERE project_id = :projectId")
+    reactor.core.publisher.Mono<Void> deleteByProjectId(@org.springframework.data.repository.query.Param("projectId") Long projectId);
 }
 
 interface ProjectGalleryRepositoryInternal {

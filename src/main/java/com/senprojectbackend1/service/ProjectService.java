@@ -3,6 +3,7 @@ package com.senprojectbackend1.service;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
+import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
@@ -170,4 +171,13 @@ public interface ProjectService {
     Mono<Void> markProjectAsDeleted(Long id, String userLogin);
 
     Mono<ProjectDTO> changeProjectStatus(Long projectId, String newStatus, String userLogin);
+
+    /**
+     * Crée ou met à jour un projet à partir d'un ProjectSubmissionDTO (logique soumission unique).
+     *
+     * @param submissionDTO le DTO de soumission (création ou update)
+     * @param userLogin le login de l'utilisateur courant
+     * @return le projet créé ou mis à jour
+     */
+    Mono<ProjectDTO> submitProject(ProjectSubmissionDTO submissionDTO, String userLogin);
 }

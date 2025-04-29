@@ -1,13 +1,15 @@
 package com.senprojectbackend1.service;
 
+import com.senprojectbackend1.domain.ExternalLink;
 import com.senprojectbackend1.domain.criteria.ExternalLinkCriteria;
+import com.senprojectbackend1.service.dto.CommentDTO;
 import com.senprojectbackend1.service.dto.ExternalLinkDTO;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Service Interface for managing {@link com.senprojectbackend1.domain.ExternalLink}.
+ * Service Interface for managing {@link ExternalLink}.
  */
 public interface ExternalLinkService {
     /**
@@ -70,4 +72,12 @@ public interface ExternalLinkService {
      * @return a Mono to signal the deletion
      */
     Mono<Void> delete(Long id);
+
+    /**
+     * Get all the externalLinks with eager load of many-to-many relationships.
+     *
+     * @param id the pagination information.
+     * @return the list of entities.
+     */
+    Flux<ExternalLinkDTO> findByProject(Long id);
 }

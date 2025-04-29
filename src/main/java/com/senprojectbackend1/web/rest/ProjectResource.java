@@ -8,11 +8,13 @@ import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.repository.EngagementProjectRepository;
 import com.senprojectbackend1.repository.ProjectGalleryRepository;
 import com.senprojectbackend1.repository.ProjectRepository;
+import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
+import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -383,5 +385,36 @@ public class ProjectResource {
             .map(Authentication::getName)
             .flatMap(login -> projectService.changeProjectStatus(id, newStatus, login))
             .map(ResponseEntity::ok);
+    }
+
+    /**
+     * {@code POST  /projects/submit} : Soumettre un projet (création ou modification).
+     *
+     * @param projectSubmissionDTO le projet à soumettre.
+     * @return le {@link ResponseEntity} avec le projet créé ou modifié.
+     */
+    @PostMapping("/submit")
+    public Mono<ResponseEntity<ProjectDTO>> submitProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
+        return SecurityUtils.getCurrentUserLogin()
+            .switchIfEmpty(
+                Mono.error(
+                    new com.senprojectbackend1.web.rest.errors.BadRequestAlertException(
+                        "Utilisateur courant non trouvé",
+                        "project",
+                        "usernotfound"
+                    )
+                )
+            )
+            .flatMap(currentUserLogin ->
+                projectService
+                    .submitProject(projectSubmissionDTO, currentUserLogin)
+                    .map(result -> {
+                        try {
+                            return ResponseEntity.created(new java.net.URI("/api/projects/" + result.getId())).body(result);
+                        } catch (java.net.URISyntaxException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+            );
     }
 }

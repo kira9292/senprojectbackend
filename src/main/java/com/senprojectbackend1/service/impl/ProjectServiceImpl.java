@@ -1,25 +1,24 @@
 package com.senprojectbackend1.service.impl;
 
-import com.senprojectbackend1.domain.EngagementProject;
+import com.senprojectbackend1.domain.*;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
 import com.senprojectbackend1.domain.enumeration.EngagementType;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.*;
-import com.senprojectbackend1.service.CommentService;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.TagService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
+import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
-import com.senprojectbackend1.service.mapper.UserProfileMapper;
+import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -54,6 +53,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final EngagementProjectRepository engagementProjectRepository;
     private final TagService tagService;
     private final TeamRepository teamRepository;
+    private final ExternalLinkRepository externalLinkRepository;
+    private final ProjectGalleryRepository projectGalleryRepository;
 
     public ProjectServiceImpl(
         ProjectRepository projectRepository,
@@ -68,7 +69,9 @@ public class ProjectServiceImpl implements ProjectService {
         UserProfileService userProfileService,
         EngagementProjectRepository engagementProjectRepository,
         TagService tagService,
-        TeamRepository teamRepository
+        TeamRepository teamRepository,
+        ExternalLinkRepository externalLinkRepository,
+        ProjectGalleryRepository projectGalleryRepository
     ) {
         this.projectRepository = projectRepository;
         this.projectSectionRepository = projectSectionRepository;
@@ -83,6 +86,8 @@ public class ProjectServiceImpl implements ProjectService {
         this.engagementProjectRepository = engagementProjectRepository;
         this.tagService = tagService;
         this.teamRepository = teamRepository;
+        this.externalLinkRepository = externalLinkRepository;
+        this.projectGalleryRepository = projectGalleryRepository;
     }
 
     @Override
@@ -504,5 +509,187 @@ public class ProjectServiceImpl implements ProjectService {
                             })
                     );
             });
+    }
+
+    @Override
+    public Mono<ProjectDTO> submitProject(ProjectSubmissionDTO submissionDTO, String userLogin) {
+        if (submissionDTO.getTitle() == null || submissionDTO.getTitle().trim().length() < 3) {
+            return Mono.error(
+                new BadRequestAlertException("Le titre du projet doit contenir au moins 3 caractères", "project", "titleinvalid")
+            );
+        }
+        boolean isUpdate = submissionDTO.getId() != null;
+        Mono<Project> projectMono;
+        if (isUpdate) {
+            projectMono = projectRepository
+                .findById(submissionDTO.getId())
+                .switchIfEmpty(Mono.error(new BadRequestAlertException("Projet non trouvé", "project", "notfound")))
+                .flatMap(existingProject -> {
+                    if (existingProject.getTeamId() == null) {
+                        return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
+                    }
+                    return userProfileRepository
+                        .findOneByLogin(userLogin)
+                        .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
+                        .flatMap(userProfile ->
+                            teamMembershipRepository
+                                .findByTeamIdAndUserId(existingProject.getTeamId(), userProfile.getId())
+                                .switchIfEmpty(
+                                    Mono.error(
+                                        new BadRequestAlertException("Vous n'êtes pas membre de l'équipe du projet", "project", "notmember")
+                                    )
+                                )
+                                .flatMap(membership -> {
+                                    if (!"ACCEPTED".equals(membership.getStatus())) {
+                                        return Mono.error(
+                                            new BadRequestAlertException(
+                                                "Votre statut d'équipe n'est pas accepté",
+                                                "project",
+                                                "notaccepted"
+                                            )
+                                        );
+                                    }
+                                    if (!"LEAD".equals(membership.getRole()) && !"MODIFY".equals(membership.getRole())) {
+                                        return Mono.error(
+                                            new BadRequestAlertException(
+                                                "Seuls les membres LEAD ou MODIFY peuvent modifier le projet",
+                                                "project",
+                                                "noright"
+                                            )
+                                        );
+                                    }
+                                    existingProject
+                                        .title(submissionDTO.getTitle())
+                                        .description(submissionDTO.getDescription())
+                                        .showcase(submissionDTO.getShowcase())
+                                        .type(submissionDTO.getType())
+                                        .openToCollaboration(submissionDTO.isOpenToCollaboration())
+                                        .openToFunding(submissionDTO.isOpenToFunding())
+                                        .updatedAt(java.time.Instant.now())
+                                        .lastUpdatedBy(userLogin);
+                                    return enrichProjectWithAssociations(existingProject, submissionDTO);
+                                })
+                        );
+                });
+        } else {
+            Project project = new Project()
+                .title(submissionDTO.getTitle())
+                .description(submissionDTO.getDescription())
+                .showcase(submissionDTO.getShowcase())
+                .status(com.senprojectbackend1.domain.enumeration.ProjectStatus.WAITING_VALIDATION)
+                .createdAt(java.time.Instant.now())
+                .updatedAt(java.time.Instant.now())
+                .openToCollaboration(submissionDTO.isOpenToCollaboration())
+                .openToFunding(submissionDTO.isOpenToFunding())
+                .type(submissionDTO.getType())
+                .totalLikes(0)
+                .totalShares(0)
+                .totalViews(0)
+                .totalComments(0)
+                .totalFavorites(0)
+                .isDeleted(false)
+                .createdBy(userLogin)
+                .lastUpdatedBy(userLogin);
+            projectMono = enrichProjectWithAssociations(project, submissionDTO);
+        }
+        return projectMono
+            .flatMap(projectRepository::save)
+            .flatMap(savedProject -> processAllSections(savedProject, submissionDTO).thenReturn(savedProject))
+            .flatMap(savedProject -> notifyTeamMembers(savedProject, userLogin, isUpdate).thenReturn(savedProject))
+            .map(projectMapper::toDto);
+    }
+
+    private Mono<Project> enrichProjectWithAssociations(Project project, ProjectSubmissionDTO dto) {
+        Mono<Project> projectMono = Mono.just(project);
+        if (dto.getTeamId() != null) {
+            projectMono = projectMono.flatMap(p -> teamRepository.findById(dto.getTeamId()).map(p::team).defaultIfEmpty(p));
+        }
+        if (dto.getTagIds() != null && !dto.getTagIds().isEmpty()) {
+            projectMono = projectMono.flatMap(p ->
+                Flux.fromIterable(dto.getTagIds())
+                    .flatMap(tagRepository::findById)
+                    .collectList()
+                    .map(tags -> {
+                        tags.forEach(p::addTags);
+                        return p;
+                    })
+            );
+        }
+        return projectMono;
+    }
+
+    private Mono<Void> processAllSections(Project project, ProjectSubmissionDTO dto) {
+        return projectSectionRepository
+            .deleteByProjectId(project.getId())
+            .thenMany(saveSections(project, dto.getSections()))
+            .then(projectGalleryRepository.deleteByProjectId(project.getId()))
+            .thenMany(saveGalleryImages(project, dto.getGalleryImages()))
+            .then(externalLinkRepository.deleteByProjectId(project.getId()))
+            .thenMany(saveExternalLinks(project, dto.getExternalLinks()))
+            .then();
+    }
+
+    private Flux<ProjectSection> saveSections(Project project, java.util.List<ProjectSubmissionDTO.SectionDTO> sections) {
+        if (sections == null || sections.isEmpty()) return Flux.empty();
+        return Flux.fromIterable(sections)
+            .index()
+            .flatMap(tuple -> {
+                int order = tuple.getT1().intValue();
+                ProjectSubmissionDTO.SectionDTO sectionDTO = tuple.getT2();
+                ProjectSection section = new ProjectSection()
+                    .title(sectionDTO.getTitle())
+                    .content(sectionDTO.getContent())
+                    .mediaUrl(sectionDTO.getMediaUrl())
+                    .order(order)
+                    .project(project);
+                return projectSectionRepository.save(section);
+            });
+    }
+
+    private Flux<ProjectGallery> saveGalleryImages(Project project, java.util.List<ProjectSubmissionDTO.GalleryImageDTO> images) {
+        if (images == null || images.isEmpty()) return Flux.empty();
+        return Flux.fromIterable(images)
+            .index()
+            .flatMap(tuple -> {
+                int order = tuple.getT1().intValue();
+                ProjectSubmissionDTO.GalleryImageDTO imageDTO = tuple.getT2();
+                ProjectGallery galleryImage = new ProjectGallery()
+                    .imageUrl(imageDTO.getImageUrl())
+                    .description(imageDTO.getDescription())
+                    .order(order)
+                    .project(project);
+                return projectGalleryRepository.save(galleryImage);
+            });
+    }
+
+    private Flux<ExternalLink> saveExternalLinks(Project project, java.util.List<ProjectSubmissionDTO.ExternalLinkDTO> links) {
+        if (links == null || links.isEmpty()) return Flux.empty();
+        return Flux.fromIterable(links).flatMap(linkDTO -> {
+            ExternalLink link = new ExternalLink().title(linkDTO.getTitle()).url(linkDTO.getUrl()).type(linkDTO.getType()).project(project);
+            return externalLinkRepository.save(link);
+        });
+    }
+
+    private Mono<Void> notifyTeamMembers(Project project, String userLogin, boolean isUpdate) {
+        return teamMembershipRepository
+            .findAll()
+            .filter(m -> m.getTeamId().equals(project.getTeamId()))
+            .filter(m -> "ACCEPTED".equals(m.getStatus()))
+            .filter(m -> !m.getMembersId().equals(userLogin))
+            .flatMap(m ->
+                userProfileRepository
+                    .findById(m.getMembersId())
+                    .flatMap(user ->
+                        notificationService.createNotification(
+                            user.getId(),
+                            (isUpdate ? "Le projet '" : "Un nouveau projet '") +
+                            project.getTitle() +
+                            (isUpdate ? "' a été modifié." : "' a été créé."),
+                            com.senprojectbackend1.domain.enumeration.NotificationType.PROJECT_UPDATED,
+                            project.getId().toString()
+                        )
+                    )
+            )
+            .then();
     }
 }

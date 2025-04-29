@@ -92,4 +92,11 @@ public class ExternalLinkServiceImpl implements ExternalLinkService {
         LOG.debug("Request to delete ExternalLink : {}", id);
         return externalLinkRepository.deleteById(id);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<ExternalLinkDTO> findByProject(Long id) {
+        LOG.debug("Request to get all ExternalLinks for Project : {}", id);
+        return externalLinkRepository.findByProject(id).map(externalLinkMapper::toDto);
+    }
 }

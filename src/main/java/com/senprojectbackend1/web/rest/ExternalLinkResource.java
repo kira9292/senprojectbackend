@@ -236,4 +236,16 @@ public class ExternalLinkResource {
                 )
             );
     }
+
+    /**
+     * {@code GET  /external-links/project/:id} : get all the externalLinks for a project.
+     *
+     * @param id the id of the project.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of externalLinks in body.
+     */
+    @GetMapping("/project/{id}")
+    public Mono<ResponseEntity<List<ExternalLinkDTO>>> getCommentsByProjectId(@PathVariable Long id) {
+        LOG.debug("REST request to get Comments for Project : {}", id);
+        return externalLinkService.findByProject(id).collectList().map(comments -> ResponseEntity.ok().body(comments));
+    }
 }

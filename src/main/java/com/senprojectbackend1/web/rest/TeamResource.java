@@ -1,6 +1,5 @@
 package com.senprojectbackend1.web.rest;
 
-import com.senprojectbackend1.domain.Team;
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
 import com.senprojectbackend1.repository.TeamRepository;
 import com.senprojectbackend1.service.TeamService;
@@ -30,7 +29,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
