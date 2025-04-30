@@ -615,24 +615,57 @@ public class ProjectServiceImpl implements ProjectService {
                 .findByTagName(category, size, offset)
                 .flatMap(project -> {
                     // Chargement eager des tags pour chaque projet
-                    return projectRepository
+                    Mono<Project> projectWithTags = projectRepository
                         .findTagsByProjectId(project.getId())
                         .collectList()
                         .map(tags -> {
                             project.setTags(new HashSet<>(tags));
                             return project;
                         });
+
+                    // Chargement des informations de l'équipe si présente
+                    if (project.getTeamId() != null) {
+                        return projectWithTags.flatMap(
+                            p ->
+                                teamRepository
+                                    .findById(p.getTeamId())
+                                    .map(team -> {
+                                        p.setTeam(team);
+                                        return p;
+                                    })
+                                    .defaultIfEmpty(p) // Retourne le projet sans équipe si l'équipe n'est pas trouvée
+                        );
+                    } else {
+                        return projectWithTags;
+                    }
                 })
                 .map(projectMapper::toDto)
                 .collectList();
-
             // Récupérer le nombre total de projets avec ce tag
             totalCount = projectRepository.countByTagName(category);
         } else {
-            // Récupérer tous les projets sans filtre
+            // Utiliser la méthode qui charge déjà toutes les relations
             Pageable pageable = PageRequest.of(page, size);
-            projectDTOs = projectRepository.findAllWithEagerRelationships(pageable).map(projectMapper::toDto).collectList();
 
+            // Si la méthode findAllWithEagerRelationships charge déjà l'équipe
+
+            projectDTOs = projectRepository
+                .findAllWithEagerRelationships(pageable)
+                .flatMap(project -> {
+                    if (project.getTeamId() != null) {
+                        return teamRepository
+                            .findById(project.getTeamId())
+                            .map(team -> {
+                                project.setTeam(team);
+                                return project;
+                            })
+                            .defaultIfEmpty(project);
+                    } else {
+                        return Mono.just(project);
+                    }
+                })
+                .map(projectMapper::toDto)
+                .collectList();
             // Récupérer le nombre total de projets
             totalCount = projectRepository.count();
         }
