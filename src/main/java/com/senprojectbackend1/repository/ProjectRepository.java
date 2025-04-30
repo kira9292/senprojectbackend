@@ -34,6 +34,9 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
     @Query("SELECT * FROM project entity WHERE entity.team_id = :id")
     Flux<Project> findByTeam(Long id);
 
+    @Query("SELECT * FROM project entity WHERE LOWER(entity.title) = LOWER(:title)")
+    Flux<Project> findByTitle(String title);
+
     @Query("SELECT * FROM project entity WHERE entity.team_id IS NULL")
     Flux<Project> findAllWhereTeamIsNull();
 

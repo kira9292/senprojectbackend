@@ -396,15 +396,7 @@ public class ProjectResource {
     @PostMapping("/submit")
     public Mono<ResponseEntity<ProjectDTO>> submitProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
         return SecurityUtils.getCurrentUserLogin()
-            .switchIfEmpty(
-                Mono.error(
-                    new com.senprojectbackend1.web.rest.errors.BadRequestAlertException(
-                        "Utilisateur courant non trouvé",
-                        "project",
-                        "usernotfound"
-                    )
-                )
-            )
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Utilisateur courant non trouvé", "project", "usernotfound")))
             .flatMap(currentUserLogin ->
                 projectService
                     .submitProject(projectSubmissionDTO, currentUserLogin)
