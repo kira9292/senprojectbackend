@@ -10,19 +10,19 @@ import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.TagService;
 import com.senprojectbackend1.service.UserProfileService;
-import com.senprojectbackend1.service.dto.ProjectDTO;
-import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
-import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
-import com.senprojectbackend1.service.dto.TagDTO;
+import com.senprojectbackend1.service.dto.*;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -618,6 +618,105 @@ public class ProjectServiceImpl implements ProjectService {
                     .flatMap(savedProject -> notifyTeamMembers(savedProject, userLogin, isUpdate).thenReturn(savedProject))
                     .map(projectMapper::toDto);
             });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size, String category) {
+        LOG.debug("Request to get paginated Projects, page: {}, size: {}, category: {}", page, size, category);
+
+        Mono<java.util.List<ProjectDTO>> projectDTOs;
+        Mono<Long> totalCount;
+
+        if (category != null && !category.isEmpty()) {
+            // Filtrer par catégorie (tag)
+            // Utiliser les limites manuelles pour R2DBC au lieu de Pageable
+            int offset = page * size;
+            projectDTOs = projectRepository
+                .findByTagName(category, size, offset)
+                .flatMap(project -> {
+                    // Chargement eager des tags pour chaque projet
+                    Mono<Project> projectWithTags = projectRepository
+                        .findTagsByProjectId(project.getId())
+                        .collectList()
+                        .map(tags -> {
+                            project.setTags(new HashSet<>(tags));
+                            return project;
+                        });
+
+                    // Chargement des informations de l'équipe si présente
+                    if (project.getTeamId() != null) {
+                        return projectWithTags.flatMap(
+                            p ->
+                                teamRepository
+                                    .findById(p.getTeamId())
+                                    .map(team -> {
+                                        p.setTeam(team);
+                                        return p;
+                                    })
+                                    .defaultIfEmpty(p) // Retourne le projet sans équipe si l'équipe n'est pas trouvée
+                        );
+                    } else {
+                        return projectWithTags;
+                    }
+                })
+                .map(projectMapper::toDto)
+                .collectList();
+            // Récupérer le nombre total de projets avec ce tag
+            totalCount = projectRepository.countByTagName(category);
+        } else {
+            // Utiliser la méthode qui charge déjà toutes les relations
+            Pageable pageable = PageRequest.of(page, size);
+
+            // Si la méthode findAllWithEagerRelationships charge déjà l'équipe
+
+            projectDTOs = projectRepository
+                .findAllWithEagerRelationships(pageable)
+                .flatMap(project -> {
+                    if (project.getTeamId() != null) {
+                        return teamRepository
+                            .findById(project.getTeamId())
+                            .map(team -> {
+                                project.setTeam(team);
+                                return project;
+                            })
+                            .defaultIfEmpty(project);
+                    } else {
+                        return Mono.just(project);
+                    }
+                })
+                .map(projectMapper::toDto)
+                .collectList();
+            // Récupérer le nombre total de projets
+            totalCount = projectRepository.count();
+        }
+
+        // Combiner les résultats pour créer la réponse paginée
+        return Mono.zip(projectDTOs, totalCount).map(tuple -> {
+            java.util.List<ProjectDTO> content = tuple.getT1();
+            long total = tuple.getT2();
+            int totalPages = (int) Math.ceil((double) total / size);
+
+            return new PageDTO<>(content != null ? content : new ArrayList<>(), total, totalPages, page, size);
+        });
+    }
+
+    // Implémentation de la méthode existante pour maintenir la compatibilité
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size) {
+        // Appel à la nouvelle méthode avec category = null
+        return getPaginatedProjects(page, size, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<ProjectDTO> getTop10PopularProjects() {
+        LOG.debug("Request to get top 10 popular projects");
+        return projectRepository
+            .findTop10PopularProjects()
+            .map(projectMapper::toDto)
+            .doOnNext(project -> LOG.debug("Found popular project: {}", project.getTitle()));
     }
 
     private Mono<Project> enrichProjectWithAssociations(Project project, ProjectSubmissionDTO dto) {

@@ -24,7 +24,7 @@ services:
     extends:
       file: ./kafdrop.yml
       service: kafdrop
-  senprojectbackend:
-    image: lyak008/senprojectbackend:latest
-    ports:
-      - '8081:8081'
+#  senprojectbackend:
+#    image: lyak008/senprojectbackend:latest
+#    ports:
+#      - '8081:8081'

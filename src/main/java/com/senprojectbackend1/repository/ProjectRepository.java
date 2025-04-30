@@ -141,6 +141,33 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
 
     @Query("UPDATE project SET status = 'DELETED' WHERE id = :id")
     Mono<Void> updateProjectStatusToDeleted(@Param("id") Long id);
+
+    @Query(
+        "SELECT * FROM project " +
+        "WHERE status = 'PUBLISHED' AND is_deleted = false " +
+        "ORDER BY (total_views + total_likes + total_favorites) DESC " +
+        "LIMIT 10"
+    )
+    Flux<Project> findTop10PopularProjects();
+
+    // Ajouter ces méthodes dans ProjectRepository
+
+    @Query(
+        "SELECT p.* FROM project p " +
+        "JOIN rel_project__tags rpt ON p.id = rpt.project_id " +
+        "JOIN tag t ON rpt.tags_id = t.id " +
+        "WHERE t.name = :tagName " +
+        "LIMIT :limit OFFSET :offset"
+    )
+    Flux<Project> findByTagName(@Param("tagName") String tagName, @Param("limit") int limit, @Param("offset") int offset);
+
+    @Query(
+        "SELECT COUNT(DISTINCT p.id) FROM project p " +
+        "JOIN rel_project__tags rpt ON p.id = rpt.project_id " +
+        "JOIN tag t ON rpt.tags_id = t.id " +
+        "WHERE t.name = :tagName"
+    )
+    Mono<Long> countByTagName(@Param("tagName") String tagName);
 }
 
 interface ProjectRepositoryInternal {
