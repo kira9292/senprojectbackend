@@ -146,6 +146,25 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
         "LIMIT 10"
     )
     Flux<Project> findTop10PopularProjects();
+
+    // Ajouter ces méthodes dans ProjectRepository
+
+    @Query(
+        "SELECT p.* FROM project p " +
+        "JOIN rel_project__tags rpt ON p.id = rpt.project_id " +
+        "JOIN tag t ON rpt.tags_id = t.id " +
+        "WHERE t.name = :tagName " +
+        "LIMIT :limit OFFSET :offset"
+    )
+    Flux<Project> findByTagName(@Param("tagName") String tagName, @Param("limit") int limit, @Param("offset") int offset);
+
+    @Query(
+        "SELECT COUNT(DISTINCT p.id) FROM project p " +
+        "JOIN rel_project__tags rpt ON p.id = rpt.project_id " +
+        "JOIN tag t ON rpt.tags_id = t.id " +
+        "WHERE t.name = :tagName"
+    )
+    Mono<Long> countByTagName(@Param("tagName") String tagName);
 }
 
 interface ProjectRepositoryInternal {

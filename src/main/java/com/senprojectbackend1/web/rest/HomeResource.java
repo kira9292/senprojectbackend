@@ -37,11 +37,12 @@ public class HomeResource {
     @GetMapping("/projects/paginated")
     public Mono<ResponseEntity<PageDTO<ProjectDTO>>> getPaginatedProjects(
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "3") int size
+        @RequestParam(defaultValue = "3") int size,
+        @RequestParam(required = false) String category
     ) {
-        log.debug("REST request to get paginated Projects - page: {}, size: {}", page, size);
+        log.debug("REST request to get paginated Projects - page: {}, size: {}, category: {}", page, size, category);
 
-        return projectService.getPaginatedProjects(page, size).map(ResponseEntity::ok);
+        return projectService.getPaginatedProjects(page, size, category).map(ResponseEntity::ok);
     }
 
     /**

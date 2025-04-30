@@ -17,6 +17,7 @@ import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -600,20 +601,41 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true)
-    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size) {
-        LOG.debug("Request to get paginated Projects, page: {}, size: {}", page, size);
+    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size, String category) {
+        LOG.debug("Request to get paginated Projects, page: {}, size: {}, category: {}", page, size, category);
 
-        // Créer l'objet Pageable avec les paramètres de pagination
-        Pageable pageable = PageRequest.of(page, size);
+        Mono<java.util.List<ProjectDTO>> projectDTOs;
+        Mono<Long> totalCount;
 
-        // Récupérer les projets pour la page demandée
-        Mono<java.util.List<ProjectDTO>> projectDTOs = projectRepository
-            .findAllWithEagerRelationships(pageable)
-            .map(projectMapper::toDto)
-            .collectList();
+        if (category != null && !category.isEmpty()) {
+            // Filtrer par catégorie (tag)
+            // Utiliser les limites manuelles pour R2DBC au lieu de Pageable
+            int offset = page * size;
+            projectDTOs = projectRepository
+                .findByTagName(category, size, offset)
+                .flatMap(project -> {
+                    // Chargement eager des tags pour chaque projet
+                    return projectRepository
+                        .findTagsByProjectId(project.getId())
+                        .collectList()
+                        .map(tags -> {
+                            project.setTags(new HashSet<>(tags));
+                            return project;
+                        });
+                })
+                .map(projectMapper::toDto)
+                .collectList();
 
-        // Récupérer le nombre total de projets
-        Mono<Long> totalCount = projectRepository.count();
+            // Récupérer le nombre total de projets avec ce tag
+            totalCount = projectRepository.countByTagName(category);
+        } else {
+            // Récupérer tous les projets sans filtre
+            Pageable pageable = PageRequest.of(page, size);
+            projectDTOs = projectRepository.findAllWithEagerRelationships(pageable).map(projectMapper::toDto).collectList();
+
+            // Récupérer le nombre total de projets
+            totalCount = projectRepository.count();
+        }
 
         // Combiner les résultats pour créer la réponse paginée
         return Mono.zip(projectDTOs, totalCount).map(tuple -> {
@@ -623,6 +645,14 @@ public class ProjectServiceImpl implements ProjectService {
 
             return new PageDTO<>(content != null ? content : new ArrayList<>(), total, totalPages, page, size);
         });
+    }
+
+    // Implémentation de la méthode existante pour maintenir la compatibilité
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size) {
+        // Appel à la nouvelle méthode avec category = null
+        return getPaginatedProjects(page, size, null);
     }
 
     @Override
