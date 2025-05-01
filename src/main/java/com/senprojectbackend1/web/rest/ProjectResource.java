@@ -1,17 +1,9 @@
 package com.senprojectbackend1.web.rest;
 
-import com.senprojectbackend1.domain.EngagementProject;
-import com.senprojectbackend1.domain.ProjectGallery;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
-import com.senprojectbackend1.domain.enumeration.EngagementType;
-import com.senprojectbackend1.domain.enumeration.NotificationType;
-import com.senprojectbackend1.repository.EngagementProjectRepository;
-import com.senprojectbackend1.repository.ProjectGalleryRepository;
 import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.security.SecurityUtils;
-import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
-import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
 import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
@@ -20,7 +12,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -60,22 +51,10 @@ public class ProjectResource {
 
     private final ProjectService projectService;
     private final ProjectRepository projectRepository;
-    private final UserProfileService userProfileService;
-    private final EngagementProjectRepository engagementProjectRepository;
-    private final ProjectGalleryRepository projectGalleryRepository;
 
-    public ProjectResource(
-        ProjectService projectService,
-        ProjectRepository projectRepository,
-        UserProfileService userProfileService,
-        EngagementProjectRepository engagementProjectRepository,
-        ProjectGalleryRepository projectGalleryRepository
-    ) {
+    public ProjectResource(ProjectService projectService, ProjectRepository projectRepository) {
         this.projectService = projectService;
         this.projectRepository = projectRepository;
-        this.userProfileService = userProfileService;
-        this.engagementProjectRepository = engagementProjectRepository;
-        this.projectGalleryRepository = projectGalleryRepository;
     }
 
     /**
@@ -83,23 +62,24 @@ public class ProjectResource {
      *
      * @param projectDTO the projectDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectDTO, or with status {@code 400 (Bad Request)} if the project has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    public Mono<ResponseEntity<ProjectDTO>> createProject(@Valid @RequestBody ProjectDTO projectDTO) throws URISyntaxException {
+    public Mono<ResponseEntity<ProjectDTO>> createProject(@Valid @RequestBody ProjectDTO projectDTO) {
         LOG.debug("REST request to save Project : {}", projectDTO);
         if (projectDTO.getId() != null) {
             throw new BadRequestAlertException("A new project cannot already have an ID", ENTITY_NAME, "idexists");
         }
         return projectService
             .save(projectDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/projects/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/projects/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -107,15 +87,13 @@ public class ProjectResource {
     /**
      * {@code PUT  /projects/:id} : Updates an existing project.
      *
-     * @param id the id of the projectDTO to save.
      * @param projectDTO the projectDTO to update.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated projectDTO,
      * or with status {@code 400 (Bad Request)} if the projectDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the projectDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
-    public Mono<ResponseEntity<Void>> updateProject(@PathVariable Long id, @RequestBody ProjectDTO projectDTO) {
+    @PutMapping("")
+    public Mono<ResponseEntity<Void>> updateProject(@RequestBody ProjectDTO projectDTO) {
         LOG.debug("REST request to update Project : {}", projectDTO);
         return projectService.updateProject(projectDTO).map(project -> ResponseEntity.ok().build());
     }
@@ -129,13 +107,12 @@ public class ProjectResource {
      * or with status {@code 400 (Bad Request)} if the projectDTO is not valid,
      * or with status {@code 404 (Not Found)} if the projectDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the projectDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ProjectDTO>> partialUpdateProject(
         @PathVariable(value = "id", required = false) final Long id,
         @NotNull @RequestBody ProjectDTO projectDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to partial update Project partially : {}, {}", id, projectDTO);
         if (projectDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -147,7 +124,7 @@ public class ProjectResource {
         return projectRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -192,8 +169,6 @@ public class ProjectResource {
                     .body(countWithEntities.getT2())
             );
     }
-
-    // TODO: api to recover all project of the current users
 
     /**
      * {@code GET  /projects} : get all the projects.
@@ -284,7 +259,7 @@ public class ProjectResource {
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteProject(@PathVariable Long id) {
         LOG.debug("REST request to delete Project : {}", id);
-        return projectService.deleteProject(id).map(notification -> ResponseEntity.ok().build());
+        return projectService.deleteProject(id).then(Mono.fromCallable(() -> ResponseEntity.ok().build()));
     }
 
     /**
@@ -303,11 +278,10 @@ public class ProjectResource {
      * {@code POST /projects/{id}/reject} : Reject a project
      *
      * @param id the id of the project to reject
-     * @param reason the reason for rejection
      * @return the {@link ResponseEntity} with status {@code 200 (OK)}
      */
     @PostMapping("/{id}/reject")
-    public Mono<ResponseEntity<Void>> rejectProject(@PathVariable Long id, @RequestParam(required = false) String reason) {
+    public Mono<ResponseEntity<Void>> rejectProject(@PathVariable Long id) {
         LOG.debug("REST request to reject Project : {}", id);
         return projectService.rejectProject(id).map(project -> ResponseEntity.ok().build());
     }
@@ -400,11 +374,11 @@ public class ProjectResource {
             .flatMap(currentUserLogin ->
                 projectService
                     .submitProject(projectSubmissionDTO, currentUserLogin)
-                    .map(result -> {
+                    .handle((result, sink) -> {
                         try {
-                            return ResponseEntity.created(new java.net.URI("/api/projects/" + result.getId())).body(result);
-                        } catch (java.net.URISyntaxException e) {
-                            throw new RuntimeException(e);
+                            sink.next(ResponseEntity.created(new URI("/api/projects/" + result.getId())).body(result));
+                        } catch (URISyntaxException e) {
+                            sink.error(new RuntimeException(e));
                         }
                     })
             );

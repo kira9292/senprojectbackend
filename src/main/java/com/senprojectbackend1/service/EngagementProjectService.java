@@ -80,4 +80,13 @@ public interface EngagementProjectService {
      * @return le DTO de l'engagement créé ou existant
      */
     Mono<EngagementProjectDTO> createProjectEngagement(Long projectId, String type, String login);
+
+    /**
+     * Retourne le statut d'engagement (like/share) d'un utilisateur pour un projet donné.
+     *
+     * @param projectId l'ID du projet
+     * @param login le login de l'utilisateur
+     * @return le statut d'engagement (like/share)
+     */
+    Mono<com.senprojectbackend1.service.dto.EngagementStatusDTO> getUserEngagementStatus(Long projectId, String login);
 }
