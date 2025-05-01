@@ -21,7 +21,7 @@ public class ProjectGallery implements Serializable {
     private Long id;
 
     @NotNull(message = "must not be null")
-    @Size(max = 255)
+    @Size(max = 5000)
     @Column("image_url")
     private String imageUrl;
 

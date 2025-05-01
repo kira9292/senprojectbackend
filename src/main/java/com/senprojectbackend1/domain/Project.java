@@ -35,7 +35,7 @@ public class Project implements Serializable {
     @Column("description")
     private String description;
 
-    @Size(max = 255)
+    @Size(max = 5000)
     @Column("showcase")
     private String showcase;
 

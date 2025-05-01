@@ -1,5 +1,7 @@
 package com.senprojectbackend1.web.rest;
 
+import static org.apache.commons.codec.binary.Base64.decodeBase64;
+
 import com.senprojectbackend1.domain.EngagementProject;
 import com.senprojectbackend1.domain.ProjectGallery;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
@@ -9,18 +11,21 @@ import com.senprojectbackend1.repository.EngagementProjectRepository;
 import com.senprojectbackend1.repository.ProjectGalleryRepository;
 import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.security.SecurityUtils;
+import com.senprojectbackend1.service.CloudinaryService;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
 import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
+import com.senprojectbackend1.service.util.ByteArrayMultipartFile;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -36,6 +41,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
 import reactor.core.publisher.Flux;
@@ -63,19 +69,22 @@ public class ProjectResource {
     private final UserProfileService userProfileService;
     private final EngagementProjectRepository engagementProjectRepository;
     private final ProjectGalleryRepository projectGalleryRepository;
+    private final CloudinaryService cloudinaryService;
 
     public ProjectResource(
         ProjectService projectService,
         ProjectRepository projectRepository,
         UserProfileService userProfileService,
         EngagementProjectRepository engagementProjectRepository,
-        ProjectGalleryRepository projectGalleryRepository
+        ProjectGalleryRepository projectGalleryRepository,
+        CloudinaryService cloudinaryService
     ) {
         this.projectService = projectService;
         this.projectRepository = projectRepository;
         this.userProfileService = userProfileService;
         this.engagementProjectRepository = engagementProjectRepository;
         this.projectGalleryRepository = projectGalleryRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     /**
@@ -393,20 +402,173 @@ public class ProjectResource {
      * @param projectSubmissionDTO le projet à soumettre.
      * @return le {@link ResponseEntity} avec le projet créé ou modifié.
      */
+
     @PostMapping("/submit")
     public Mono<ResponseEntity<ProjectDTO>> submitProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
+        System.out.println("[DEBUG] Début de la méthode submitProject");
+
         return SecurityUtils.getCurrentUserLogin()
-            .switchIfEmpty(Mono.error(new BadRequestAlertException("Utilisateur courant non trouvé", "project", "usernotfound")))
-            .flatMap(currentUserLogin ->
-                projectService
-                    .submitProject(projectSubmissionDTO, currentUserLogin)
-                    .map(result -> {
-                        try {
-                            return ResponseEntity.created(new java.net.URI("/api/projects/" + result.getId())).body(result);
-                        } catch (java.net.URISyntaxException e) {
-                            throw new RuntimeException(e);
-                        }
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", "project", "usernotfound")))
+            .flatMap(currentUserLogin -> {
+                System.out.println("[DEBUG] Utilisateur courant : " + currentUserLogin);
+
+                // Traitement des images de la galerie
+                return processGalleryImages(projectSubmissionDTO).flatMap(withGallery -> {
+                    // Traitement de l'image showcase
+                    return processShowcaseImage(withGallery).flatMap(withShowcase -> {
+                        // Traitement des images de section
+                        return processSectionImages(withShowcase).flatMap(finalProjectData -> {
+                            System.out.println("[DEBUG] Envoi des données au service ProjectService");
+                            return projectService
+                                .submitProject(finalProjectData, currentUserLogin)
+                                .map(result -> {
+                                    try {
+                                        System.out.println("[DEBUG] Projet créé avec ID : " + result.getId());
+                                        return ResponseEntity.created(new URI("/api/projects/" + result.getId())).body(result);
+                                    } catch (URISyntaxException e) {
+                                        System.err.println("[ERREUR 3] URI invalide pour le projet : " + e.getMessage());
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                        });
+                    });
+                });
+            });
+    }
+
+    /**
+     * Traite et télécharge toutes les images de galerie
+     */
+    private Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData) {
+        if (projectData.getGalleryImages() == null || projectData.getGalleryImages().isEmpty()) {
+            return Mono.just(projectData);
+        }
+
+        return Flux.fromIterable(projectData.getGalleryImages())
+            .flatMap(imageDTO -> {
+                try {
+                    System.out.println("[DEBUG] Traitement d'une image de galerie");
+                    String rawData = imageDTO.getImageUrl();
+                    if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
+                        return Mono.just(imageDTO); // Déjà une URL ou pas d'image
+                    }
+
+                    System.out.println("[DEBUG] Données image : début = " + rawData.substring(0, Math.min(30, rawData.length())) + "...");
+
+                    return uploadBase64Image(rawData, "gallery")
+                        .map(url -> {
+                            System.out.println("[DEBUG] Image téléchargée, URL Cloudinary : " + url);
+                            imageDTO.setImageUrl(url);
+                            return imageDTO;
+                        })
+                        .onErrorResume(e -> {
+                            System.err.println("[ERREUR] Erreur lors du traitement d'une image : " + e.getMessage());
+                            imageDTO.setImageUrl(""); // On vide l'URL en cas d'erreur
+                            return Mono.just(imageDTO);
+                        });
+                } catch (Exception e) {
+                    System.err.println("[ERREUR 2] Erreur lors du traitement d'une image : " + e.getMessage());
+                    e.printStackTrace();
+                    return Mono.error(new BadRequestAlertException("Fichier image invalide", "project", "invalidimage"));
+                }
+            })
+            .collectList()
+            .map(updatedGallery -> {
+                System.out.println("[DEBUG] Galerie mise à jour avec " + updatedGallery.size() + " image(s)");
+                projectData.setGalleryImages(updatedGallery);
+                return projectData;
+            });
+    }
+
+    /**
+     * Traite et télécharge l'image showcase
+     */
+    private Mono<ProjectSubmissionDTO> processShowcaseImage(ProjectSubmissionDTO projectData) {
+        String rawData = projectData.getShowcase();
+        if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
+            return Mono.just(projectData); // Déjà une URL ou pas d'image
+        }
+
+        System.out.println("[DEBUG] Traitement image showcase");
+
+        return uploadBase64Image(rawData, "showcase")
+            .map(showcaseUrl -> {
+                System.out.println("[DEBUG] Image showcase téléchargée, URL : " + showcaseUrl);
+                projectData.setShowcase(showcaseUrl);
+                return projectData;
+            })
+            .onErrorResume(e -> {
+                System.err.println("[ERREUR 5] Erreur traitement image showcase : " + e.getMessage());
+                e.printStackTrace();
+                projectData.setShowcase(""); // On vide l'URL en cas d'erreur
+                return Mono.just(projectData);
+            });
+    }
+
+    /**
+     * Traite et télécharge les images des sections
+     */
+    private Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData) {
+        if (projectData.getSections() == null || projectData.getSections().isEmpty()) {
+            return Mono.just(projectData);
+        }
+
+        return Flux.fromIterable(projectData.getSections())
+            .flatMap(section -> {
+                String mediaUrl = section.getMediaUrl();
+                if (mediaUrl == null || mediaUrl.isBlank() || mediaUrl.startsWith("http")) {
+                    return Mono.just(section); // Déjà une URL ou pas d'image
+                }
+
+                System.out.println("[DEBUG] Traitement image de section: " + section.getTitle());
+
+                return uploadBase64Image(mediaUrl, "section")
+                    .map(uploadedUrl -> {
+                        System.out.println("[DEBUG] Image de section téléchargée, URL : " + uploadedUrl);
+                        section.setMediaUrl(uploadedUrl);
+                        return section;
                     })
-            );
+                    .onErrorResume(e -> {
+                        System.err.println("[ERREUR] Erreur traitement image de section : " + e.getMessage());
+                        section.setMediaUrl(""); // On vide l'URL en cas d'erreur
+                        return Mono.just(section);
+                    });
+            })
+            .collectList()
+            .map(updatedSections -> {
+                System.out.println("[DEBUG] Sections mises à jour avec images");
+                projectData.setSections(updatedSections);
+                return projectData;
+            });
+    }
+
+    /**
+     * Upload une image en base64 vers Cloudinary
+     */
+    private Mono<String> uploadBase64Image(String rawData, String prefix) {
+        try {
+            String base64Data;
+            String contentType = "image/jpeg"; // Valeur par défaut
+
+            if (rawData.startsWith("data:")) {
+                int commaIndex = rawData.indexOf(",");
+                String metadata = rawData.substring(5, commaIndex);
+                contentType = metadata.split(";")[0];
+                base64Data = rawData.substring(commaIndex + 1);
+                System.out.println("[DEBUG] Type MIME détecté : " + contentType);
+            } else {
+                base64Data = rawData;
+                System.out.println("[DEBUG] Aucune métadonnée, utilisation par défaut");
+            }
+
+            byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+            String extension = contentType.split("/")[1];
+            String filename = prefix + "_" + System.currentTimeMillis() + "." + extension;
+
+            MultipartFile file = new ByteArrayMultipartFile(imageBytes, filename, contentType);
+            return cloudinaryService.uploadImage(file);
+        } catch (Exception e) {
+            return Mono.error(e);
+        }
     }
 }

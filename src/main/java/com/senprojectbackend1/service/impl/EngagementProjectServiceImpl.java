@@ -194,4 +194,33 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
                 return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid engagement type"));
             });
     }
+
+    /**
+     * Retourne le statut d'engagement (like/share) d'un utilisateur pour un projet donné.
+     *
+     * @param projectId l'ID du projet
+     * @param login le login de l'utilisateur
+     * @return le statut d'engagement (like/share)
+     */
+    @Override
+    public Mono<com.senprojectbackend1.service.dto.EngagementStatusDTO> getUserEngagementStatus(Long projectId, String login) {
+        return userProfileService
+            .getUserProfileSimpleByLogin(login)
+            .flatMap(userProfile -> {
+                if (userProfile == null) {
+                    LOG.error("User profile not found for login: {}", login);
+                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"));
+                }
+                String userId = userProfile.getId();
+                Mono<Boolean> likeMono = engagementProjectRepository
+                    .findEngagementByUserIdAndProjectIdAndType(userId, projectId, "LIKE")
+                    .hasElement();
+                Mono<Boolean> shareMono = engagementProjectRepository
+                    .findEngagementByUserIdAndProjectIdAndType(userId, projectId, "SHARE")
+                    .hasElement();
+                return Mono.zip(likeMono, shareMono).map(tuple ->
+                    new com.senprojectbackend1.service.dto.EngagementStatusDTO(tuple.getT1(), tuple.getT2())
+                );
+            });
+    }
 }

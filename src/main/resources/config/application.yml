@@ -17,6 +17,10 @@
 ---
 # Conditionally disable springdoc on missing api-docs profile
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
   config:
     activate:
       on-profile: '!api-docs'
@@ -203,6 +207,11 @@ server:
     session:
       cookie:
         http-only: true
+  max-http-request-size: 10MB
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 10MB
+    max-http-form-post-size: 10MB
 
 springdoc:
   show-actuator: true
@@ -258,3 +267,8 @@ jhipster:
 # ===================================================================
 
 # application:
+
+cloudinary:
+  cloud-name: dqbmkp8mf
+  api-key: 129758995152166
+  api-secret: aaMSV7CvlWEBtuwd5BX3Yn7UKzE

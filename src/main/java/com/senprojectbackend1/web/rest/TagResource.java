@@ -92,7 +92,7 @@ public class TagResource {
     public Mono<ResponseEntity<TagDTO>> updateTag(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody TagDTO tagDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to update Tag : {}, {}", id, tagDTO);
         if (tagDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");

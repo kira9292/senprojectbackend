@@ -280,4 +280,19 @@ public class EngagementProjectResource {
                 engagementProjectService.createProjectEngagement(id, type, login).map(result -> ResponseEntity.ok().body(result))
             );
     }
+
+    /**
+     * {@code GET  /engagement-projects/project/{id}/status} : Récupère le statut d'engagement (like/share) de l'utilisateur courant pour un projet.
+     *
+     * @param id l'id du projet
+     * @return le statut d'engagement sous la forme {like: true/false, share: true/false}
+     */
+    @GetMapping("/project/{id}/status")
+    public Mono<ResponseEntity<com.senprojectbackend1.service.dto.EngagementStatusDTO>> getUserEngagementStatus(
+        @PathVariable("id") Long id
+    ) {
+        return ReactiveSecurityContextHolder.getContext()
+            .map(securityContext -> securityContext.getAuthentication().getName())
+            .flatMap(login -> engagementProjectService.getUserEngagementStatus(id, login).map(status -> ResponseEntity.ok().body(status)));
+    }
 }

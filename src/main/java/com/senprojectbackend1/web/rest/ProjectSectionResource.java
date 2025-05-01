@@ -56,24 +56,24 @@ public class ProjectSectionResource {
      *
      * @param projectSectionDTO the projectSectionDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectSectionDTO, or with status {@code 400 (Bad Request)} if the projectSection has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    public Mono<ResponseEntity<ProjectSectionDTO>> createProjectSection(@Valid @RequestBody ProjectSectionDTO projectSectionDTO)
-        throws URISyntaxException {
+    public Mono<ResponseEntity<ProjectSectionDTO>> createProjectSection(@Valid @RequestBody ProjectSectionDTO projectSectionDTO) {
         LOG.debug("REST request to save ProjectSection : {}", projectSectionDTO);
         if (projectSectionDTO.getId() != null) {
             throw new BadRequestAlertException("A new projectSection cannot already have an ID", ENTITY_NAME, "idexists");
         }
         return projectSectionService
             .save(projectSectionDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/project-sections/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/project-sections/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -86,13 +86,12 @@ public class ProjectSectionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated projectSectionDTO,
      * or with status {@code 400 (Bad Request)} if the projectSectionDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the projectSectionDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
     public Mono<ResponseEntity<ProjectSectionDTO>> updateProjectSection(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody ProjectSectionDTO projectSectionDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to update ProjectSection : {}, {}", id, projectSectionDTO);
         if (projectSectionDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -104,7 +103,7 @@ public class ProjectSectionResource {
         return projectSectionRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -128,13 +127,12 @@ public class ProjectSectionResource {
      * or with status {@code 400 (Bad Request)} if the projectSectionDTO is not valid,
      * or with status {@code 404 (Not Found)} if the projectSectionDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the projectSectionDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ProjectSectionDTO>> partialUpdateProjectSection(
         @PathVariable(value = "id", required = false) final Long id,
         @NotNull @RequestBody ProjectSectionDTO projectSectionDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to partial update ProjectSection partially : {}, {}", id, projectSectionDTO);
         if (projectSectionDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -146,7 +144,7 @@ public class ProjectSectionResource {
         return projectSectionRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 

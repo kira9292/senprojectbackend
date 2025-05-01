@@ -13,7 +13,7 @@ public class ProjectGalleryDTO implements Serializable {
     private Long id;
 
     @NotNull(message = "must not be null")
-    @Size(max = 255)
+    @Size(max = 50000)
     private String imageUrl;
 
     @Size(max = 500)
