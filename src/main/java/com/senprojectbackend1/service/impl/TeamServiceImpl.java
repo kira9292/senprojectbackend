@@ -150,12 +150,7 @@ public class TeamServiceImpl implements TeamService {
             .findAllByMembers_Login(login)
             .map(teamMapper::toDto)
             .flatMap(this::enrichTeamWithMembers)
-            .filter(team ->
-                team
-                    .getMembers()
-                    .stream()
-                    .anyMatch(m -> m.getStatus() != null && m.getStatus().equals("ACCEPTED") && m.getLogin().equals(login))
-            );
+            .filter(team -> team.getMembers().stream().anyMatch(m -> m.getStatus() != null && m.getLogin().equals(login)));
     }
 
     private Mono<TeamDTO> enrichTeamWithMembers(TeamDTO team) {

@@ -49,7 +49,7 @@ public interface TagService {
      * @param criteria filtering criteria
      * @return the count of tags
      */
-    public Mono<Long> countByCriteria(TagCriteria criteria);
+    Mono<Long> countByCriteria(TagCriteria criteria);
 
     /**
      * Returns the number of tags available.
