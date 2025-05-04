@@ -45,6 +45,7 @@ public interface ProjectMapper extends EntityMapper<ProjectDTO, Project> {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     @Mapping(target = "name", source = "name")
+    @Mapping(target = "logo", source = "logo")
     @Mapping(target = "members", ignore = true)
     TeamDTO toDtoTeamId(Team team);
 
