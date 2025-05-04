@@ -715,6 +715,19 @@ public class ProjectServiceImpl implements ProjectService {
         LOG.debug("Request to get top 10 popular projects");
         return projectRepository
             .findTop10PopularProjects()
+            .flatMap(project -> {
+                if (project.getTeamId() != null) {
+                    return teamRepository
+                        .findById(project.getTeamId())
+                        .map(team -> {
+                            project.setTeam(team);
+                            return project;
+                        })
+                        .defaultIfEmpty(project);
+                } else {
+                    return Mono.just(project);
+                }
+            })
             .map(projectMapper::toDto)
             .doOnNext(project -> LOG.debug("Found popular project: {}", project.getTitle()));
     }
