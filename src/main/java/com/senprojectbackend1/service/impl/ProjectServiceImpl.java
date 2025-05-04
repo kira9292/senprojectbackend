@@ -812,4 +812,61 @@ public class ProjectServiceImpl implements ProjectService {
             )
             .then();
     }
+
+    @Override
+    public Mono<ProjectDTO> updateSubmittedProject(ProjectSubmissionDTO submissionDTO, String userLogin) {
+        if (submissionDTO.getId() == null) {
+            return Mono.error(new BadRequestAlertException("ID du projet manquant pour la mise à jour", "project", "idmissing"));
+        }
+        return projectRepository
+            .findById(submissionDTO.getId())
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Projet non trouvé", "project", "notfound")))
+            .flatMap(existingProject -> {
+                if (existingProject.getTeamId() == null) {
+                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
+                }
+                return userProfileRepository
+                    .findOneByLogin(userLogin)
+                    .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
+                    .flatMap(userProfile ->
+                        teamMembershipRepository
+                            .findByTeamIdAndUserId(existingProject.getTeamId(), userProfile.getId())
+                            .switchIfEmpty(
+                                Mono.error(
+                                    new BadRequestAlertException("Vous n'êtes pas membre de l'équipe du projet", "project", "notmember")
+                                )
+                            )
+                            .flatMap(membership -> {
+                                if (!"ACCEPTED".equals(membership.getStatus())) {
+                                    return Mono.error(
+                                        new BadRequestAlertException("Votre statut d'équipe n'est pas accepté", "project", "notaccepted")
+                                    );
+                                }
+                                if (!"LEAD".equals(membership.getRole()) && !"MODIFY".equals(membership.getRole())) {
+                                    return Mono.error(
+                                        new BadRequestAlertException(
+                                            "Seuls les membres LEAD ou MODIFY peuvent modifier le projet",
+                                            "project",
+                                            "noright"
+                                        )
+                                    );
+                                }
+                                // Mise à jour des champs
+                                existingProject
+                                    .title(submissionDTO.getTitle())
+                                    .description(submissionDTO.getDescription())
+                                    .showcase(submissionDTO.getShowcase())
+                                    .type(submissionDTO.getType())
+                                    .openToCollaboration(submissionDTO.isOpenToCollaboration())
+                                    .openToFunding(submissionDTO.isOpenToFunding())
+                                    .updatedAt(java.time.Instant.now())
+                                    .lastUpdatedBy(userLogin);
+                                return enrichProjectWithAssociations(existingProject, submissionDTO)
+                                    .flatMap(projectRepository::save)
+                                    .flatMap(savedProject -> processAllSections(savedProject, submissionDTO).thenReturn(savedProject))
+                                    .map(projectMapper::toDto);
+                            })
+                    );
+            });
+    }
 }

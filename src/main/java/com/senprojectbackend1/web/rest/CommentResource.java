@@ -253,9 +253,6 @@ public class CommentResource {
             .findByProject(id)
             .collectList()
             .map(comments -> {
-                if (comments.isEmpty()) {
-                    return ResponseEntity.notFound().build();
-                }
                 return ResponseEntity.ok().body(comments);
             });
     }

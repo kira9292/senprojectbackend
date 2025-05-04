@@ -181,6 +181,16 @@ public interface ProjectService {
      * @return le projet créé ou mis à jour
      */
     Mono<ProjectDTO> submitProject(ProjectSubmissionDTO submissionDTO, String userLogin);
+
+    /**
+     * Met à jour un projet à partir d'un ProjectSubmissionDTO (logique soumission update).
+     *
+     * @param submissionDTO le DTO de soumission (update)
+     * @param userLogin le login de l'utilisateur courant
+     * @return le projet mis à jour
+     */
+    Mono<ProjectDTO> updateSubmittedProject(ProjectSubmissionDTO submissionDTO, String userLogin);
+
     /**
      * Récupère une page de projets.
      *

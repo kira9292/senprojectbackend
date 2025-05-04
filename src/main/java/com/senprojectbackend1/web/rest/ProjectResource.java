@@ -405,12 +405,12 @@ public class ProjectResource {
 
     @PostMapping("/submit")
     public Mono<ResponseEntity<ProjectDTO>> submitProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
-        System.out.println("[DEBUG] Début de la méthode submitProject");
+        LOG.debug("[DEBUG] Début de la méthode submitProject");
 
         return SecurityUtils.getCurrentUserLogin()
             .switchIfEmpty(Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", "project", "usernotfound")))
             .flatMap(currentUserLogin -> {
-                System.out.println("[DEBUG] Utilisateur courant : " + currentUserLogin);
+                LOG.debug("[DEBUG] Utilisateur courant : {}", currentUserLogin);
 
                 // Traitement des images de la galerie
                 return processGalleryImages(projectSubmissionDTO).flatMap(withGallery -> {
@@ -418,16 +418,55 @@ public class ProjectResource {
                     return processShowcaseImage(withGallery).flatMap(withShowcase -> {
                         // Traitement des images de section
                         return processSectionImages(withShowcase).flatMap(finalProjectData -> {
-                            System.out.println("[DEBUG] Envoi des données au service ProjectService");
+                            LOG.debug("[DEBUG] Envoi des données au service ProjectService");
                             return projectService
                                 .submitProject(finalProjectData, currentUserLogin)
-                                .map(result -> {
+                                .handle((result, sink) -> {
                                     try {
-                                        System.out.println("[DEBUG] Projet créé avec ID : " + result.getId());
-                                        return ResponseEntity.created(new URI("/api/projects/" + result.getId())).body(result);
+                                        LOG.debug("[DEBUG] Projet créé avec ID : " + result.getId());
+                                        sink.next(ResponseEntity.created(new URI("/api/projects/" + result.getId())).body(result));
                                     } catch (URISyntaxException e) {
-                                        System.err.println("[ERREUR 3] URI invalide pour le projet : " + e.getMessage());
-                                        throw new RuntimeException(e);
+                                        LOG.debug("[ERREUR 3] URI invalide pour le projet : " + e.getMessage());
+                                        sink.error(new RuntimeException(e));
+                                    }
+                                });
+                        });
+                    });
+                });
+            });
+    }
+
+    /**
+     * {@code POST  /projects/submit-update} : Met à jour un projet (logique soumission, avec vérification des droits).
+     *
+     * @param projectSubmissionDTO le projet à mettre à jour.
+     * @return le {@link ResponseEntity} avec le projet mis à jour.
+     */
+    @PostMapping("/submit-update")
+    public Mono<ResponseEntity<ProjectDTO>> updateSubmittedProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
+        LOG.debug("[DEBUG] Début de la méthode updateSubmittedProject");
+
+        return SecurityUtils.getCurrentUserLogin()
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", "project", "usernotfound")))
+            .flatMap(currentUserLogin -> {
+                LOG.debug("[DEBUG] Utilisateur courant : {}", currentUserLogin);
+
+                // Traitement des images de la galerie
+                return processGalleryImages(projectSubmissionDTO).flatMap(withGallery -> {
+                    // Traitement de l'image showcase
+                    return processShowcaseImage(withGallery).flatMap(withShowcase -> {
+                        // Traitement des images de section
+                        return processSectionImages(withShowcase).flatMap(finalProjectData -> {
+                            LOG.debug("[DEBUG] Envoi des données au service ProjectService pour update submit");
+                            return projectService
+                                .updateSubmittedProject(finalProjectData, currentUserLogin)
+                                .handle((result, sink) -> {
+                                    try {
+                                        LOG.debug("[DEBUG] Projet mis à jour avec ID : " + result.getId());
+                                        sink.next(ResponseEntity.ok(result));
+                                    } catch (Exception e) {
+                                        LOG.debug("[ERREUR 3] Erreur lors de la mise à jour du projet : " + e.getMessage());
+                                        sink.error(new RuntimeException(e));
                                     }
                                 });
                         });
@@ -447,34 +486,34 @@ public class ProjectResource {
         return Flux.fromIterable(projectData.getGalleryImages())
             .flatMap(imageDTO -> {
                 try {
-                    System.out.println("[DEBUG] Traitement d'une image de galerie");
+                    LOG.debug("[DEBUG] Traitement d'une image de galerie");
                     String rawData = imageDTO.getImageUrl();
                     if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
                         return Mono.just(imageDTO); // Déjà une URL ou pas d'image
                     }
 
-                    System.out.println("[DEBUG] Données image : début = " + rawData.substring(0, Math.min(30, rawData.length())) + "...");
+                    LOG.debug("[DEBUG] Données image : début = " + rawData.substring(0, Math.min(30, rawData.length())) + "...");
 
                     return uploadBase64Image(rawData, "gallery")
                         .map(url -> {
-                            System.out.println("[DEBUG] Image téléchargée, URL Cloudinary : " + url);
+                            LOG.debug("[DEBUG] Image téléchargée, URL Cloudinary : " + url);
                             imageDTO.setImageUrl(url);
                             return imageDTO;
                         })
                         .onErrorResume(e -> {
-                            System.err.println("[ERREUR] Erreur lors du traitement d'une image : " + e.getMessage());
+                            LOG.debug("[ERREUR] Erreur lors du traitement d'une image : " + e.getMessage());
                             imageDTO.setImageUrl(""); // On vide l'URL en cas d'erreur
                             return Mono.just(imageDTO);
                         });
                 } catch (Exception e) {
-                    System.err.println("[ERREUR 2] Erreur lors du traitement d'une image : " + e.getMessage());
+                    LOG.debug("[ERREUR 2] Erreur lors du traitement d'une image : " + e.getMessage());
                     e.printStackTrace();
                     return Mono.error(new BadRequestAlertException("Fichier image invalide", "project", "invalidimage"));
                 }
             })
             .collectList()
             .map(updatedGallery -> {
-                System.out.println("[DEBUG] Galerie mise à jour avec " + updatedGallery.size() + " image(s)");
+                LOG.debug("[DEBUG] Galerie mise à jour avec " + updatedGallery.size() + " image(s)");
                 projectData.setGalleryImages(updatedGallery);
                 return projectData;
             });
@@ -489,16 +528,16 @@ public class ProjectResource {
             return Mono.just(projectData); // Déjà une URL ou pas d'image
         }
 
-        System.out.println("[DEBUG] Traitement image showcase");
+        LOG.debug("[DEBUG] Traitement image showcase");
 
         return uploadBase64Image(rawData, "showcase")
             .map(showcaseUrl -> {
-                System.out.println("[DEBUG] Image showcase téléchargée, URL : " + showcaseUrl);
+                LOG.debug("[DEBUG] Image showcase téléchargée, URL : " + showcaseUrl);
                 projectData.setShowcase(showcaseUrl);
                 return projectData;
             })
             .onErrorResume(e -> {
-                System.err.println("[ERREUR 5] Erreur traitement image showcase : " + e.getMessage());
+                LOG.debug("[ERREUR 5] Erreur traitement image showcase : " + e.getMessage());
                 e.printStackTrace();
                 projectData.setShowcase(""); // On vide l'URL en cas d'erreur
                 return Mono.just(projectData);
@@ -520,23 +559,23 @@ public class ProjectResource {
                     return Mono.just(section); // Déjà une URL ou pas d'image
                 }
 
-                System.out.println("[DEBUG] Traitement image de section: " + section.getTitle());
+                LOG.debug("[DEBUG] Traitement image de section: " + section.getTitle());
 
                 return uploadBase64Image(mediaUrl, "section")
                     .map(uploadedUrl -> {
-                        System.out.println("[DEBUG] Image de section téléchargée, URL : " + uploadedUrl);
+                        LOG.debug("[DEBUG] Image de section téléchargée, URL : " + uploadedUrl);
                         section.setMediaUrl(uploadedUrl);
                         return section;
                     })
                     .onErrorResume(e -> {
-                        System.err.println("[ERREUR] Erreur traitement image de section : " + e.getMessage());
+                        LOG.debug("[ERREUR] Erreur traitement image de section : " + e.getMessage());
                         section.setMediaUrl(""); // On vide l'URL en cas d'erreur
                         return Mono.just(section);
                     });
             })
             .collectList()
             .map(updatedSections -> {
-                System.out.println("[DEBUG] Sections mises à jour avec images");
+                LOG.debug("[DEBUG] Sections mises à jour avec images");
                 projectData.setSections(updatedSections);
                 return projectData;
             });
@@ -555,10 +594,10 @@ public class ProjectResource {
                 String metadata = rawData.substring(5, commaIndex);
                 contentType = metadata.split(";")[0];
                 base64Data = rawData.substring(commaIndex + 1);
-                System.out.println("[DEBUG] Type MIME détecté : " + contentType);
+                LOG.debug("[DEBUG] Type MIME détecté : " + contentType);
             } else {
                 base64Data = rawData;
-                System.out.println("[DEBUG] Aucune métadonnée, utilisation par défaut");
+                LOG.debug("[DEBUG] Aucune métadonnée, utilisation par défaut");
             }
 
             byte[] imageBytes = Base64.getDecoder().decode(base64Data);
