@@ -4,7 +4,9 @@ import com.senprojectbackend1.domain.Tag;
 import com.senprojectbackend1.domain.criteria.TagCriteria;
 import com.senprojectbackend1.repository.TagRepository;
 import com.senprojectbackend1.service.TagService;
+import com.senprojectbackend1.service.dto.PageDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
+import com.senprojectbackend1.service.dto.TagWithCountDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -24,6 +26,7 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -33,7 +36,7 @@ import tech.jhipster.web.util.reactive.ResponseUtil;
  * REST controller for managing {@link com.senprojectbackend1.domain.Tag}.
  */
 @RestController
-@RequestMapping("/api/tags")
+@RequestMapping("/api")
 public class TagResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(TagResource.class);
@@ -59,7 +62,7 @@ public class TagResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new tagDTO, or with status {@code 400 (Bad Request)} if the tag has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PostMapping("")
+    @PostMapping("/tags")
     public Mono<ResponseEntity<TagDTO>> createTag(@Valid @RequestBody TagDTO tagDTO) throws URISyntaxException {
         LOG.debug("REST request to save Tag : {}", tagDTO);
         if (tagDTO.getId() != null) {
@@ -88,7 +91,7 @@ public class TagResource {
      * or with status {@code 500 (Internal Server Error)} if the tagDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PutMapping("/{id}")
+    @PutMapping("/tags/{id}")
     public Mono<ResponseEntity<TagDTO>> updateTag(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody TagDTO tagDTO
@@ -130,7 +133,7 @@ public class TagResource {
      * or with status {@code 500 (Internal Server Error)} if the tagDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
-    @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
+    @PatchMapping(value = "/tags/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<TagDTO>> partialUpdateTag(
         @PathVariable(value = "id", required = false) final Long id,
         @NotNull @RequestBody TagDTO tagDTO
@@ -170,7 +173,7 @@ public class TagResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body.
      */
-    @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<TagDTO>>> getAllTags(
         TagCriteria criteria,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable,
@@ -198,7 +201,7 @@ public class TagResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
-    @GetMapping("/count")
+    @GetMapping("/tags/count")
     public Mono<ResponseEntity<Long>> countTags(TagCriteria criteria) {
         LOG.debug("REST request to count Tags by criteria: {}", criteria);
         return tagService.countByCriteria(criteria).map(count -> ResponseEntity.status(HttpStatus.OK).body(count));
@@ -210,7 +213,7 @@ public class TagResource {
      * @param id the id of the tagDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the tagDTO, or with status {@code 404 (Not Found)}.
      */
-    @GetMapping("/{id}")
+    @GetMapping("/tags/{id}")
     public Mono<ResponseEntity<TagDTO>> getTag(@PathVariable("id") Long id) {
         LOG.debug("REST request to get Tag : {}", id);
         Mono<TagDTO> tagDTO = tagService.findOne(id);
@@ -223,7 +226,7 @@ public class TagResource {
      * @param id the id of the tagDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/tags/{id}")
     public Mono<ResponseEntity<Void>> deleteTag(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete Tag : {}", id);
         return tagService
@@ -243,7 +246,7 @@ public class TagResource {
      * @param id the id of the project
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body
      */
-    @GetMapping("project/{id}")
+    @GetMapping("/tags/project/{id}")
     public Mono<ResponseEntity<List<Tag>>> getProjectTags(@PathVariable Long id) {
         LOG.debug("REST request to get tags for Project : {}", id);
         return tagRepository
@@ -251,5 +254,21 @@ public class TagResource {
             .collectList()
             .map(tags -> ResponseEntity.ok().body(tags))
             .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * {@code GET  /tags/paginated} : get all tags with their project count.
+     *
+     * @param page the page number (0-based)
+     * @param size the page size
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body.
+     */
+    @GetMapping("/tags/paginated")
+    public Mono<ResponseEntity<PageDTO<TagWithCountDTO>>> getPaginatedTags(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size
+    ) {
+        LOG.debug("REST request to get paginated Tags with count");
+        return tagService.getPaginatedTags(page, size).map(ResponseEntity::ok);
     }
 }

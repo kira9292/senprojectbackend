@@ -35,6 +35,19 @@ public interface TagRepository extends ReactiveCrudRepository<Tag, Long>, TagRep
         "SELECT * FROM tag entity JOIN rel_project__tags joinTable ON entity.id = joinTable.tags_id Join project p on p.id = joinTable.project_id WHERE joinTable.project_id = :projectId"
     )
     Flux<Tag> findByProjectId(Long projectId);
+
+    @Query(
+        "SELECT t.* FROM tag t " +
+        "ORDER BY (SELECT COUNT(*) FROM rel_project__tags rpt WHERE rpt.tags_id = t.id) DESC " +
+        "LIMIT :limit OFFSET :offset"
+    )
+    Flux<Tag> findTagsWithCount(int limit, int offset);
+
+    @Query("SELECT COUNT(*) FROM rel_project__tags WHERE tags_id = :tagId")
+    Mono<Long> countProjectsForTag(Long tagId);
+
+    @Query("SELECT COUNT(DISTINCT t.id) " + "FROM tag t")
+    Mono<Long> countAllTags();
 }
 
 interface TagRepositoryInternal {

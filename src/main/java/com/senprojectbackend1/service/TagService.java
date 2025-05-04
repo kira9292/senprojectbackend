@@ -1,7 +1,9 @@
 package com.senprojectbackend1.service;
 
 import com.senprojectbackend1.domain.criteria.TagCriteria;
+import com.senprojectbackend1.service.dto.PageDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
+import com.senprojectbackend1.service.dto.TagWithCountDTO;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -74,4 +76,13 @@ public interface TagService {
 
     @Transactional(readOnly = true)
     Flux<TagDTO> findByProjectId(Long projectId);
+
+    /**
+     * Get paginated tags with their project count.
+     *
+     * @param page the page number (0-based)
+     * @param size the page size
+     * @return a page of tags with their project count
+     */
+    Mono<PageDTO<TagWithCountDTO>> getPaginatedTags(int page, int size);
 }

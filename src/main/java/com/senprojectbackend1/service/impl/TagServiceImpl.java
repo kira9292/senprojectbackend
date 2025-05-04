@@ -3,7 +3,9 @@ package com.senprojectbackend1.service.impl;
 import com.senprojectbackend1.domain.criteria.TagCriteria;
 import com.senprojectbackend1.repository.TagRepository;
 import com.senprojectbackend1.service.TagService;
+import com.senprojectbackend1.service.dto.PageDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
+import com.senprojectbackend1.service.dto.TagWithCountDTO;
 import com.senprojectbackend1.service.mapper.TagMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,5 +99,41 @@ public class TagServiceImpl implements TagService {
     public Flux<TagDTO> findByProjectId(Long projectId) {
         LOG.debug("Request to get Tags for Project : {}", projectId);
         return tagRepository.findByProjectId(projectId).map(tagMapper::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Mono<PageDTO<TagWithCountDTO>> getPaginatedTags(int page, int size) {
+        LOG.debug("Request to get paginated Tags with count");
+        int offset = page * size;
+
+        return Mono.zip(
+            tagRepository
+                .findTagsWithCount(size, offset)
+                .flatMap(tag ->
+                    tagRepository
+                        .countProjectsForTag(tag.getId())
+                        .map(count -> {
+                            TagWithCountDTO dto = new TagWithCountDTO();
+                            dto.setId(tag.getId());
+                            dto.setName(tag.getName());
+                            dto.setCount(count);
+                            return dto;
+                        })
+                )
+                .collectList(),
+            tagRepository.countAllTags()
+        ).map(tuple -> {
+            var tags = tuple.getT1();
+            var total = tuple.getT2();
+
+            PageDTO<TagWithCountDTO> pageDTO = new PageDTO<>();
+            pageDTO.setContent(tags);
+            pageDTO.setTotalElements(total);
+            pageDTO.setTotalPages((int) Math.ceil((double) total / size));
+            pageDTO.setCurrentPage(page);
+            pageDTO.setPageSize(size);
+            return pageDTO;
+        });
     }
 }
