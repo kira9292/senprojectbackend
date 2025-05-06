@@ -55,6 +55,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final TeamRepository teamRepository;
     private final ExternalLinkRepository externalLinkRepository;
     private final ProjectGalleryRepository projectGalleryRepository;
+    private final com.senprojectbackend1.service.CloudinaryService cloudinaryService;
 
     public ProjectServiceImpl(
         ProjectRepository projectRepository,
@@ -71,7 +72,8 @@ public class ProjectServiceImpl implements ProjectService {
         TagService tagService,
         TeamRepository teamRepository,
         ExternalLinkRepository externalLinkRepository,
-        ProjectGalleryRepository projectGalleryRepository
+        ProjectGalleryRepository projectGalleryRepository,
+        com.senprojectbackend1.service.CloudinaryService cloudinaryService
     ) {
         this.projectRepository = projectRepository;
         this.projectSectionRepository = projectSectionRepository;
@@ -88,6 +90,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.teamRepository = teamRepository;
         this.externalLinkRepository = externalLinkRepository;
         this.projectGalleryRepository = projectGalleryRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @Override
@@ -891,4 +894,117 @@ public class ProjectServiceImpl implements ProjectService {
                     );
             });
     }
+
+    // --- Début méthodes utilitaires pour le traitement des images ---
+    @Override
+    public Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData, String userLogin) {
+        if (projectData.getGalleryImages() == null || projectData.getGalleryImages().isEmpty()) {
+            return Mono.just(projectData);
+        }
+        return Flux.fromIterable(projectData.getGalleryImages())
+            .flatMap(imageDTO -> {
+                try {
+                    String rawData = imageDTO.getImageUrl();
+                    if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
+                        return Mono.just(imageDTO); // Déjà une URL ou pas d'image
+                    }
+                    return uploadBase64Image(rawData, "gallery", userLogin)
+                        .map(url -> {
+                            imageDTO.setImageUrl(url);
+                            return imageDTO;
+                        })
+                        .onErrorResume(e -> {
+                            imageDTO.setImageUrl("");
+                            return Mono.just(imageDTO);
+                        });
+                } catch (Exception e) {
+                    return Mono.error(new BadRequestAlertException("Fichier image invalide", "project", "invalidimage"));
+                }
+            })
+            .collectList()
+            .map(updatedGallery -> {
+                projectData.setGalleryImages(updatedGallery);
+                return projectData;
+            });
+    }
+
+    @Override
+    public Mono<ProjectSubmissionDTO> processShowcaseImage(ProjectSubmissionDTO projectData, String userLogin) {
+        String rawData = projectData.getShowcase();
+        if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
+            return Mono.just(projectData); // Déjà une URL ou pas d'image
+        }
+        return uploadBase64Image(rawData, "showcase", userLogin)
+            .map(showcaseUrl -> {
+                projectData.setShowcase(showcaseUrl);
+                return projectData;
+            })
+            .onErrorResume(e -> {
+                projectData.setShowcase("");
+                return Mono.just(projectData);
+            });
+    }
+
+    @Override
+    public Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData, String userLogin) {
+        if (projectData.getSections() == null || projectData.getSections().isEmpty()) {
+            return Mono.just(projectData);
+        }
+        return Flux.fromIterable(projectData.getSections())
+            .flatMap(section -> {
+                String mediaUrl = section.getMediaUrl();
+                if (mediaUrl == null || mediaUrl.isBlank() || mediaUrl.startsWith("http")) {
+                    return Mono.just(section); // Déjà une URL ou pas d'image
+                }
+                return uploadBase64Image(mediaUrl, "section", userLogin)
+                    .map(uploadedUrl -> {
+                        section.setMediaUrl(uploadedUrl);
+                        return section;
+                    })
+                    .onErrorResume(e -> {
+                        section.setMediaUrl("");
+                        return Mono.just(section);
+                    });
+            })
+            .collectList()
+            .map(updatedSections -> {
+                projectData.setSections(updatedSections);
+                return projectData;
+            });
+    }
+
+    @Override
+    public Mono<ProjectSubmissionDTO> processAllImages(ProjectSubmissionDTO projectData, String userLogin) {
+        return processGalleryImages(projectData, userLogin)
+            .flatMap(withGallery -> processShowcaseImage(withGallery, userLogin))
+            .flatMap(withShowcase -> processSectionImages(withShowcase, userLogin));
+    }
+
+    @Override
+    public Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin) {
+        try {
+            String base64Data;
+            String contentType = "image/jpeg"; // Valeur par défaut
+            if (rawData.startsWith("data:")) {
+                int commaIndex = rawData.indexOf(",");
+                String metadata = rawData.substring(5, commaIndex);
+                contentType = metadata.split(";")[0];
+                base64Data = rawData.substring(commaIndex + 1);
+            } else {
+                base64Data = rawData;
+            }
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+            String extension = contentType.split("/")[1];
+            String filename = prefix + "_" + System.currentTimeMillis() + "." + extension;
+            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
+                imageBytes,
+                filename,
+                contentType
+            );
+            return cloudinaryService.uploadImage(file);
+        } catch (Exception e) {
+            return Mono.error(e);
+        }
+    }
+    // --- Fin méthodes utilitaires pour le traitement des images ---
 }

@@ -26,7 +26,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
@@ -70,13 +69,15 @@ public class TagResource {
         }
         return tagService
             .save(tagDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/tags/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/tags/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -89,7 +90,6 @@ public class TagResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated tagDTO,
      * or with status {@code 400 (Bad Request)} if the tagDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the tagDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/tags/{id}")
     public Mono<ResponseEntity<TagDTO>> updateTag(
@@ -107,7 +107,7 @@ public class TagResource {
         return tagRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -149,7 +149,7 @@ public class TagResource {
         return tagRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 

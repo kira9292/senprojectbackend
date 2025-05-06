@@ -207,4 +207,11 @@ public interface ProjectService {
      * @return a Flux of the most popular projects
      */
     Flux<ProjectDTO> getTop10PopularProjects();
+
+    // Ajout des méthodes utilitaires pour le traitement des images
+    Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData, String userLogin);
+    Mono<ProjectSubmissionDTO> processShowcaseImage(ProjectSubmissionDTO projectData, String userLogin);
+    Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData, String userLogin);
+    Mono<ProjectSubmissionDTO> processAllImages(ProjectSubmissionDTO projectData, String userLogin);
+    Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin);
 }
