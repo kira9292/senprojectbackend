@@ -25,7 +25,7 @@ public class ProjectDTO implements Serializable {
     @Size(min = 10, max = 2000)
     private String description;
 
-    @Size(max = 50000)
+    @Size(max = 500000)
     private String showcase;
 
     @NotNull(message = "must not be null")

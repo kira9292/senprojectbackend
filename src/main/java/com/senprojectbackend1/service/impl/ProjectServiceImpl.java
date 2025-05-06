@@ -737,10 +737,19 @@ public class ProjectServiceImpl implements ProjectService {
         if (dto.getTeamId() != null) {
             projectMono = projectMono.flatMap(p -> teamRepository.findById(dto.getTeamId()).map(p::team).defaultIfEmpty(p));
         }
-        if (dto.getTagIds() != null && !dto.getTagIds().isEmpty()) {
+        if (dto.getTags() != null && !dto.getTags().isEmpty()) {
             projectMono = projectMono.flatMap(p ->
-                Flux.fromIterable(dto.getTagIds())
-                    .flatMap(tagRepository::findById)
+                Flux.fromIterable(dto.getTags())
+                    .flatMap(tagInput -> {
+                        // Chercher un tag existant par nom (insensible à la casse)
+                        return tagRepository
+                            .findAll()
+                            .filter(existing -> existing.getName().equalsIgnoreCase(tagInput.getName()))
+                            .next()
+                            .switchIfEmpty(
+                                tagRepository.save(new Tag().name(tagInput.getName()).color(tagInput.getColor()).isForbidden(false))
+                            );
+                    })
                     .collectList()
                     .map(tags -> {
                         tags.forEach(p::addTags);

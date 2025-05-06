@@ -42,6 +42,8 @@ public class ProjectSubmissionDTO implements Serializable {
 
     private Long id;
 
+    private List<TagInputDTO> tags;
+
     // Getters et setters
     public String getTitle() {
         return title;
@@ -137,6 +139,14 @@ public class ProjectSubmissionDTO implements Serializable {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public List<TagInputDTO> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<TagInputDTO> tags) {
+        this.tags = tags;
     }
 
     // Classes imbriquées pour les sous-entités
@@ -242,6 +252,32 @@ public class ProjectSubmissionDTO implements Serializable {
 
         public void setType(LinkType type) {
             this.type = type;
+        }
+    }
+
+    public static class TagInputDTO implements Serializable {
+
+        @NotNull
+        @Size(min = 2, max = 50)
+        private String name;
+
+        @Size(max = 7)
+        private String color; // Optionnel, format #RRGGBB
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getColor() {
+            return color;
+        }
+
+        public void setColor(String color) {
+            this.color = color;
         }
     }
 
