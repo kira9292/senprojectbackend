@@ -49,7 +49,7 @@ public interface ProjectService {
      * @param criteria filtering criteria
      * @return the count of projects
      */
-    public Mono<Long> countByCriteria(ProjectCriteria criteria);
+    Mono<Long> countByCriteria(ProjectCriteria criteria);
 
     /**
      * Get all the projects with eager load of many-to-many relationships.
@@ -209,7 +209,6 @@ public interface ProjectService {
 
     // Ajout des méthodes utilitaires pour le traitement des images
     Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData, String userLogin);
-    /* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
     /**
      * Processes and uploads the showcase image for a project submission.
      *
@@ -218,29 +217,8 @@ public interface ProjectService {
      * @return a Mono containing the updated ProjectSubmissionDTO with the processed showcase image.
      */
 
-    /* <<<<<<<<<<  7c5d8b43-cde5-47ae-bdd2-3d4063ff2df8  >>>>>>>>>>> */
     Mono<ProjectSubmissionDTO> processShowcaseImage(ProjectSubmissionDTO projectData, String userLogin);
-    /* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
-    /* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
-    /* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
-    /**
-     * Uploads an image encoded in Base64 format.
-     *
-     * @param rawData the Base64 encoded string representing the image data.
-     * @param prefix a prefix to be used in the filename or path of the uploaded image.
-     * @param userLogin the login of the user uploading the image.
-     * @return a Mono containing the URL or path of the uploaded image.
-     */
 
-    /* <<<<<<<<<<  0a03f550-7c48-4372-a0fb-091e9b2eea05  >>>>>>>>>>> */
-    /**
-     * Processes and uploads all the images associated with a project submission.
-     *
-     * @param projectData the project submission data containing the images.
-     * @param userLogin the login of the user submitting the project.
-     * @return a Mono containing the updated ProjectSubmissionDTO with the processed images.
-     */
-    /* <<<<<<<<<<  aaac673f-dc53-455c-87fd-18fdb630aab9  >>>>>>>>>>> */
     /**
      * Processes and uploads the section images for a project submission.
      *
@@ -248,8 +226,6 @@ public interface ProjectService {
      * @param userLogin the login of the user submitting the project.
      * @return a Mono containing the updated ProjectSubmissionDTO with the processed section images.
      */
-
-    /* <<<<<<<<<<  9fed0e6f-7482-43fc-9cb2-6466a8c55b80  >>>>>>>>>>> */
     Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData, String userLogin);
     Mono<ProjectSubmissionDTO> processAllImages(ProjectSubmissionDTO projectData, String userLogin);
     Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin);

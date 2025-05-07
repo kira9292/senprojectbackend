@@ -14,7 +14,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springdoc.core.annotations.ParameterObject;
@@ -65,10 +64,9 @@ public class ProjectResource {
      *
      * @param projectDTO the projectDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectDTO, or with status {@code 400 (Bad Request)} if the project has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    public Mono<ResponseEntity<ProjectDTO>> createProject(@Valid @RequestBody ProjectDTO projectDTO) throws URISyntaxException {
+    public Mono<ResponseEntity<ProjectDTO>> createProject(@Valid @RequestBody ProjectDTO projectDTO) {
         LOG.debug("REST request to save Project : {}", projectDTO);
         if (projectDTO.getId() != null) {
             throw new BadRequestAlertException("A new project cannot already have an ID", ENTITY_NAME, "idexists");
@@ -421,8 +419,7 @@ public class ProjectResource {
     @GetMapping("/paginated")
     public Mono<ResponseEntity<Flux<ProjectDTO>>> getPaginatedProjects(
         @ParameterObject Pageable pageable,
-        @RequestParam(value = "category", required = false) List<String> categories,
-        ServerHttpRequest request
+        @RequestParam(value = "category", required = false) List<String> categories
     ) {
         LOG.debug("REST request to get paginated Projects - pageable: {}, categories: {}", pageable, categories);
         Mono<Long> totalMono = (categories == null || categories.isEmpty())

@@ -22,7 +22,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -146,7 +145,6 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Mono<ProjectDTO> findOne(Long id) {
         LOG.debug("Request to get Project : {}", id);
         return projectRepository.findOneWithEagerRelationships(id).map(projectMapper::toDto);
@@ -242,7 +240,7 @@ public class ProjectServiceImpl implements ProjectService {
             .findById(id)
             .flatMap(project -> {
                 if (project.getTeam() == null || project.getTeam().getId() == null) {
-                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
+                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "no team"));
                 }
                 // Vérification des droits : LEAD ou MODIFY
                 return checkUserIsAcceptedLeadOrModify(project.getTeam().getId(), project.getLastUpdatedBy())
@@ -280,7 +278,6 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Mono<ProjectDTO> findOneWithSections(Long id) {
         LOG.debug("Request to get Project with sections : {}", id);
         return projectRepository
@@ -323,10 +320,7 @@ public class ProjectServiceImpl implements ProjectService {
                 // Vérifier si l'utilisateur a déjà vu ce projet
                 return engagementProjectRepository
                     .findEngagementByUserIdAndProjectIdAndType(userId, id, "VIEW")
-                    .flatMap(existingEngagement -> {
-                        // Si l'engagement existe déjà, on ne fait rien de plus
-                        return findOneWithSections(id);
-                    })
+                    .flatMap(existingEngagement -> findOneWithSections(id))
                     .switchIfEmpty(
                         // Si l'engagement n'existe pas, on crée un nouvel engagement et on incrémente les vues
                         Mono.defer(() -> {
@@ -363,7 +357,7 @@ public class ProjectServiceImpl implements ProjectService {
                 return projectRepository
                     .isFavorite(id, userId)
                     .flatMap(isFavorite -> {
-                        if (isFavorite) {
+                        if (Boolean.TRUE.equals(isFavorite)) {
                             // Si le projet est déjà en favori, on le retire
                             return projectRepository
                                 .removeFromFavorites(id, userId)
@@ -403,8 +397,8 @@ public class ProjectServiceImpl implements ProjectService {
         return userProfileService
             .getUserProfileSimpleByLogin(userLogin)
             .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found")))
-            .flatMap(userProfile -> {
-                return projectRepository
+            .flatMap(userProfile ->
+                projectRepository
                     .findById(id)
                     .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found")))
                     .flatMap(project -> {
@@ -415,8 +409,8 @@ public class ProjectServiceImpl implements ProjectService {
                         return checkUserHasRole(project.getTeam().getId(), userLogin, Set.of("LEAD", "MODIFY")).then(
                             projectRepository.updateProjectStatusToDeleted(id)
                         );
-                    });
-            });
+                    })
+            );
     }
 
     @Override
@@ -574,22 +568,17 @@ public class ProjectServiceImpl implements ProjectService {
                             .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
                             .flatMap(newTeam -> {
                                 existingProject.team(newTeam);
-                                return updateProjectFieldsAndNotify(existingProject, dto, userLogin, true);
+                                return updateProjectFieldsAndNotify(existingProject, dto, userLogin);
                             });
                     }
-                    return updateProjectFieldsAndNotify(existingProject, dto, userLogin, true);
+                    return updateProjectFieldsAndNotify(existingProject, dto, userLogin);
                 });
             })
             .map(projectMapper::toDto);
     }
 
     // Met à jour les champs du projet, les associations, les sections, et notifie l'équipe
-    private Mono<Project> updateProjectFieldsAndNotify(
-        Project existingProject,
-        ProjectSubmissionDTO dto,
-        String userLogin,
-        boolean notifyTeam
-    ) {
+    private Mono<Project> updateProjectFieldsAndNotify(Project existingProject, ProjectSubmissionDTO dto, String userLogin) {
         existingProject
             .title(dto.getTitle())
             .description(dto.getDescription())
@@ -603,7 +592,7 @@ public class ProjectServiceImpl implements ProjectService {
             .flatMap(projectRepository::save)
             .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
             .flatMap(savedProject -> {
-                if (notifyTeam) {
+                if (true) {
                     return notifyTeamOnUpdate(savedProject, userLogin).thenReturn(savedProject);
                 } else {
                     return Mono.just(savedProject);
@@ -774,16 +763,15 @@ public class ProjectServiceImpl implements ProjectService {
         if (dto.getTags() != null && !dto.getTags().isEmpty()) {
             projectMono = projectMono.flatMap(p ->
                 Flux.fromIterable(dto.getTags())
-                    .flatMap(tagInput -> {
-                        // Chercher un tag existant par nom (insensible à la casse)
-                        return tagRepository
+                    .flatMap(tagInput ->
+                        tagRepository
                             .findAll()
                             .filter(existing -> existing.getName().equalsIgnoreCase(tagInput.getName()))
                             .next()
                             .switchIfEmpty(
                                 tagRepository.save(new Tag().name(tagInput.getName()).color(tagInput.getColor()).isForbidden(false))
-                            );
-                    })
+                            )
+                    )
                     .collectList()
                     .map(tags -> {
                         tags.forEach(p::addTags);
@@ -979,7 +967,9 @@ public class ProjectServiceImpl implements ProjectService {
             .flatMap(m ->
                 userProfileRepository
                     .findById(m.getMembersId())
-                    .flatMap(user -> notificationService.createNotification(user.getId(), message, type, project.getId().toString()))
+                    .flatMap(user ->
+                        notificationService.createNotification(user.getId(), message, type, project.getId().toString(), userLogin)
+                    )
             )
             .then();
     }
