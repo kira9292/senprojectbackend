@@ -148,9 +148,7 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
         "ORDER BY (total_views + total_likes + total_favorites) DESC " +
         "LIMIT 10"
     )
-    Flux<Project> findTop10PopularProjects();
-
-    // Ajouter ces méthodes dans ProjectRepository
+    Flux<Project> findTopPopularProjects();
 
     @Query(
         "SELECT p.* FROM project p " +

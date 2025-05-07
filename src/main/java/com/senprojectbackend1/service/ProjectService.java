@@ -195,16 +195,19 @@ public interface ProjectService {
      *
      * @param page numéro de la page (commence à 0)
      * @param size taille de la page (nombre d'éléments par page)
+     * @param categories liste des catégories (tags) à filtrer (optionnel, union)
      * @return un Flux contenant les ProjectDTO
      */
-    Flux<ProjectDTO> getPaginatedProjects(int page, int size, String category);
+    Flux<ProjectDTO> getPaginatedProjects(int page, int size, List<String> categories);
 
     /**
-     * Get the top 10 most popular projects based on views, likes and favorites.
+     * Récupère les projets les plus populaires (paginé).
      *
-     * @return a Flux of the most popular projects
+     * @param page numéro de la page (commence à 0)
+     * @param size taille de la page (nombre d'éléments par page)
+     * @return un Flux contenant les ProjectDTO populaires
      */
-    Flux<ProjectDTO> getTop10PopularProjects();
+    Flux<ProjectDTO> getTopPopularProjects(int page, int size);
 
     // Ajout des méthodes utilitaires pour le traitement des images
     Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData, String userLogin);

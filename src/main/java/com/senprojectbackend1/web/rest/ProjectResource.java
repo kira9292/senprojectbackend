@@ -414,26 +414,29 @@ public class ProjectResource {
      *
      * @param page numéro de la page (commence à 0)
      * @param size taille de la page (nombre d'éléments par page, par défaut à 3)
+     * @param categories liste des catégories (tags) à filtrer (optionnel, union)
      * @return la réponse avec statut {@code 200 (OK)} et la liste des projets dans le corps
      */
     @GetMapping("/paginated")
     public Flux<ProjectDTO> getPaginatedProjects(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "3") int size,
-        @RequestParam(required = false) String category
+        @RequestParam(value = "category", required = false) List<String> categories
     ) {
-        LOG.debug("REST request to get paginated Projects - page: {}, size: {}, category: {}", page, size, category);
-        return projectService.getPaginatedProjects(page, size, category);
+        LOG.debug("REST request to get paginated Projects - page: {}, size: {}, categories: {}", page, size, categories);
+        return projectService.getPaginatedProjects(page, size, categories);
     }
 
     /**
-     * {@code GET /projects/popular} : Récupère les 10 projets les plus populaires.
+     * {@code GET /projects/popular} : Récupère les projets les plus populaires (paginé).
      *
+     * @param page numéro de la page (commence à 0)
+     * @param size taille de la page (nombre d'éléments par page, par défaut à 10)
      * @return la réponse avec statut {@code 200 (OK)} et la liste des projets populaires dans le corps
      */
     @GetMapping("/popular")
-    public Flux<ProjectDTO> getTop10PopularProjects() {
-        LOG.debug("REST request to get top 10 popular projects");
-        return projectService.getTop10PopularProjects();
+    public Flux<ProjectDTO> getTopPopularProjects(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        LOG.debug("REST request to get top popular projects - page: {}, size: {}", page, size);
+        return projectService.getTopPopularProjects(page, size);
     }
 }

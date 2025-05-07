@@ -664,46 +664,84 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true)
-    public Flux<ProjectDTO> getPaginatedProjects(int page, int size, String category) {
-        LOG.debug("Request to get paginated Projects, page: {}, size: {}, category: {}", page, size, category);
+    public Flux<ProjectDTO> getPaginatedProjects(int page, int size, List<String> categories) {
+        LOG.debug("Request to get paginated Projects, page: {}, size: {}, categories: {}", page, size, categories);
         int offset = page * size;
-        Flux<Project> projectFlux;
-        if (category != null && !category.isEmpty()) {
-            projectFlux = projectRepository.findByTagName(category, size, offset);
-        } else {
+        if (categories == null || categories.isEmpty()) {
             Pageable pageable = PageRequest.of(page, size);
-            projectFlux = projectRepository.findAllWithEagerRelationships(pageable);
+            return projectRepository
+                .findAllWithEagerRelationships(pageable)
+                .flatMap(project ->
+                    projectRepository
+                        .findTagsByProjectId(project.getId())
+                        .collectList()
+                        .map(tags -> {
+                            project.setTags(new java.util.HashSet<>(tags));
+                            return project;
+                        })
+                )
+                .map(projectMapper::toDto);
+        } else {
+            // Union des projets pour toutes les catégories, sans doublons
+            return Flux.fromIterable(categories)
+                .flatMap(cat -> projectRepository.findByTagName(cat, size, offset))
+                .distinct(Project::getId)
+                .flatMap(project ->
+                    projectRepository
+                        .findTagsByProjectId(project.getId())
+                        .collectList()
+                        .map(tags -> {
+                            project.setTags(new java.util.HashSet<>(tags));
+                            return project;
+                        })
+                )
+                .map(projectMapper::toDto)
+                .skip(offset)
+                .take(size);
         }
-        return projectFlux
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<ProjectDTO> getTopPopularProjects(int page, int size) {
+        LOG.debug("Request to get top popular projects - page: {}, size: {}", page, size);
+        int offset = page * size;
+        // On récupère tous les projets publiés et non supprimés, puis on trie côté Java (si pas possible en SQL)
+        return projectRepository
+            .findAll()
+            .filter(p -> p.getStatus() != null && p.getStatus().name().equals("PUBLISHED") && Boolean.FALSE.equals(p.getIsDeleted()))
+            .sort((p1, p2) ->
+                Integer.compare(
+                    (safeInt(p2.getTotalViews()) + safeInt(p2.getTotalLikes()) + safeInt(p2.getTotalFavorites())),
+                    (safeInt(p1.getTotalViews()) + safeInt(p1.getTotalLikes()) + safeInt(p1.getTotalFavorites()))
+                )
+            )
+            .skip(offset)
+            .take(size)
             .flatMap(project ->
                 projectRepository
                     .findTagsByProjectId(project.getId())
                     .collectList()
-                    .map(tags -> {
+                    .flatMap(tags -> {
                         project.setTags(new java.util.HashSet<>(tags));
-                        return project;
+                        if (project.getTeamId() != null) {
+                            return teamRepository
+                                .findById(project.getTeamId())
+                                .map(team -> {
+                                    project.setTeam(team);
+                                    return project;
+                                })
+                                .defaultIfEmpty(project);
+                        } else {
+                            return reactor.core.publisher.Mono.just(project);
+                        }
                     })
             )
             .map(projectMapper::toDto);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public Flux<ProjectDTO> getTop10PopularProjects() {
-        LOG.debug("Request to get top 10 popular projects");
-        return projectRepository
-            .findTop10PopularProjects()
-            .flatMap(project ->
-                projectRepository
-                    .findTagsByProjectId(project.getId())
-                    .collectList()
-                    .map(tags -> {
-                        project.setTags(new java.util.HashSet<>(tags));
-                        return project;
-                    })
-            )
-            .map(projectMapper::toDto)
-            .doOnNext(project -> LOG.debug("Found popular project: {}", project.getTitle()));
+    private int safeInt(Integer value) {
+        return value != null ? value : 0;
     }
 
     private Mono<Project> enrichProjectWithAssociations(Project project, ProjectSubmissionDTO dto) {
