@@ -176,8 +176,6 @@ interface ProjectRepositoryInternal {
     Flux<Project> findAll();
 
     Mono<Project> findById(Long id);
-    // this is not supported at the moment because of https://github.com/jhipster/generator-jhipster/issues/18269
-    // Flux<Project> findAllBy(Pageable pageable, Criteria criteria);
     Flux<Project> findByCriteria(ProjectCriteria criteria, Pageable pageable);
 
     Mono<Long> countByCriteria(ProjectCriteria criteria);
