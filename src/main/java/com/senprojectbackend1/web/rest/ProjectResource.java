@@ -408,4 +408,32 @@ public class ProjectResource {
                     .map(ResponseEntity::ok)
             );
     }
+
+    /**
+     * {@code GET /projects/paginated} : Récupère une page de projets.
+     *
+     * @param page numéro de la page (commence à 0)
+     * @param size taille de la page (nombre d'éléments par page, par défaut à 3)
+     * @return la réponse avec statut {@code 200 (OK)} et la liste des projets dans le corps
+     */
+    @GetMapping("/paginated")
+    public Flux<ProjectDTO> getPaginatedProjects(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "3") int size,
+        @RequestParam(required = false) String category
+    ) {
+        LOG.debug("REST request to get paginated Projects - page: {}, size: {}, category: {}", page, size, category);
+        return projectService.getPaginatedProjects(page, size, category);
+    }
+
+    /**
+     * {@code GET /projects/popular} : Récupère les 10 projets les plus populaires.
+     *
+     * @return la réponse avec statut {@code 200 (OK)} et la liste des projets populaires dans le corps
+     */
+    @GetMapping("/popular")
+    public Flux<ProjectDTO> getTop10PopularProjects() {
+        LOG.debug("REST request to get top 10 popular projects");
+        return projectService.getTop10PopularProjects();
+    }
 }

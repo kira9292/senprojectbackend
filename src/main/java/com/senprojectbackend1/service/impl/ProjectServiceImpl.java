@@ -5,7 +5,6 @@ import com.senprojectbackend1.domain.criteria.ProjectCriteria;
 import com.senprojectbackend1.domain.enumeration.EngagementType;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.domain.enumeration.ProjectStatus;
-import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.*;
 import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.NotificationService;
@@ -18,7 +17,7 @@ import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -33,7 +32,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Service Implementation for managing {@link com.senprojectbackend1.domain.Project}.
+ * Service Implementation for managing {@link Project}.
  */
 @Service
 @Transactional
@@ -413,7 +412,7 @@ public class ProjectServiceImpl implements ProjectService {
                             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project has no team"));
                         }
                         // Vérification des droits : LEAD ou MODIFY
-                        return checkUserHasRole(project.getTeam().getId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).then(
+                        return checkUserHasRole(project.getTeam().getId(), userLogin, Set.of("LEAD", "MODIFY")).then(
                             projectRepository.updateProjectStatusToDeleted(id)
                         );
                     });
@@ -442,7 +441,7 @@ public class ProjectServiceImpl implements ProjectService {
                     });
                 } else {
                     // Seuls les LEAD ou MODIFY peuvent changer le statut
-                    return checkUserHasRole(project.getTeamId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).then(
+                    return checkUserHasRole(project.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).then(
                         Mono.defer(() -> {
                             project.setStatus(ProjectStatus.valueOf(newStatus));
                             return projectRepository.save(project).map(projectMapper::toDto);
@@ -497,8 +496,8 @@ public class ProjectServiceImpl implements ProjectService {
                                 .description(dto.getDescription())
                                 .showcase(dto.getShowcase())
                                 .status(ProjectStatus.PUBLISHED)
-                                .createdAt(java.time.Instant.now())
-                                .updatedAt(java.time.Instant.now())
+                                .createdAt(Instant.now())
+                                .updatedAt(Instant.now())
                                 .openToCollaboration(dto.isOpenToCollaboration())
                                 .openToFunding(dto.isOpenToFunding())
                                 .type(dto.getType())
@@ -529,8 +528,8 @@ public class ProjectServiceImpl implements ProjectService {
                         .description(dto.getDescription())
                         .showcase(dto.getShowcase())
                         .status(ProjectStatus.WAITING_VALIDATION)
-                        .createdAt(java.time.Instant.now())
-                        .updatedAt(java.time.Instant.now())
+                        .createdAt(Instant.now())
+                        .updatedAt(Instant.now())
                         .openToCollaboration(dto.isOpenToCollaboration())
                         .openToFunding(dto.isOpenToFunding())
                         .type(dto.getType())
@@ -561,7 +560,7 @@ public class ProjectServiceImpl implements ProjectService {
                 if (existingProject.getTeamId() == null) {
                     return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
                 }
-                return checkUserHasRole(existingProject.getTeamId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).flatMap(membership -> {
+                return checkUserHasRole(existingProject.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).flatMap(membership -> {
                     // Empêcher la modification de l'équipe sauf si LEAD
                     if (dto.getTeamId() != null && !dto.getTeamId().equals(existingProject.getTeamId())) {
                         if (!"LEAD".equals(membership.getRole())) {
@@ -598,7 +597,7 @@ public class ProjectServiceImpl implements ProjectService {
             .type(dto.getType())
             .openToCollaboration(dto.isOpenToCollaboration())
             .openToFunding(dto.isOpenToFunding())
-            .updatedAt(java.time.Instant.now())
+            .updatedAt(Instant.now())
             .lastUpdatedBy(userLogin);
         return enrichProjectWithAssociations(existingProject, dto)
             .flatMap(projectRepository::save)
@@ -633,7 +632,7 @@ public class ProjectServiceImpl implements ProjectService {
             .then();
     }
 
-    private Mono<TeamMembership> checkUserHasRole(Long teamId, String userLogin, java.util.Set<String> rolesAcceptes) {
+    private Mono<TeamMembership> checkUserHasRole(Long teamId, String userLogin, Set<String> rolesAcceptes) {
         return userProfileRepository
             .findOneByLogin(userLogin)
             .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
@@ -660,96 +659,32 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private Mono<TeamMembership> checkUserIsAcceptedLeadOrModify(Long teamId, String userLogin) {
-        return checkUserHasRole(teamId, userLogin, java.util.Set.of("LEAD", "MODIFY"));
+        return checkUserHasRole(teamId, userLogin, Set.of("LEAD", "MODIFY"));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size, String category) {
+    public Flux<ProjectDTO> getPaginatedProjects(int page, int size, String category) {
         LOG.debug("Request to get paginated Projects, page: {}, size: {}, category: {}", page, size, category);
-
-        Mono<java.util.List<ProjectDTO>> projectDTOs;
-        Mono<Long> totalCount;
-
+        int offset = page * size;
+        Flux<Project> projectFlux;
         if (category != null && !category.isEmpty()) {
-            // Filtrer par catégorie (tag)
-            // Utiliser les limites manuelles pour R2DBC au lieu de Pageable
-            int offset = page * size;
-            projectDTOs = projectRepository
-                .findByTagName(category, size, offset)
-                .flatMap(project -> {
-                    // Chargement eager des tags pour chaque projet
-                    Mono<Project> projectWithTags = projectRepository
-                        .findTagsByProjectId(project.getId())
-                        .collectList()
-                        .map(tags -> {
-                            project.setTags(new HashSet<>(tags));
-                            return project;
-                        });
-
-                    // Chargement des informations de l'équipe si présente
-                    if (project.getTeamId() != null) {
-                        return projectWithTags.flatMap(
-                            p ->
-                                teamRepository
-                                    .findById(p.getTeamId())
-                                    .map(team -> {
-                                        p.setTeam(team);
-                                        return p;
-                                    })
-                                    .defaultIfEmpty(p) // Retourne le projet sans équipe si l'équipe n'est pas trouvée
-                        );
-                    } else {
-                        return projectWithTags;
-                    }
-                })
-                .map(projectMapper::toDto)
-                .collectList();
-            // Récupérer le nombre total de projets avec ce tag
-            totalCount = projectRepository.countByTagName(category);
+            projectFlux = projectRepository.findByTagName(category, size, offset);
         } else {
-            // Utiliser la méthode qui charge déjà toutes les relations
             Pageable pageable = PageRequest.of(page, size);
-
-            // Si la méthode findAllWithEagerRelationships charge déjà l'équipe
-
-            projectDTOs = projectRepository
-                .findAllWithEagerRelationships(pageable)
-                .flatMap(project -> {
-                    if (project.getTeamId() != null) {
-                        return teamRepository
-                            .findById(project.getTeamId())
-                            .map(team -> {
-                                project.setTeam(team);
-                                return project;
-                            })
-                            .defaultIfEmpty(project);
-                    } else {
-                        return Mono.just(project);
-                    }
-                })
-                .map(projectMapper::toDto)
-                .collectList();
-            // Récupérer le nombre total de projets
-            totalCount = projectRepository.count();
+            projectFlux = projectRepository.findAllWithEagerRelationships(pageable);
         }
-
-        // Combiner les résultats pour créer la réponse paginée
-        return Mono.zip(projectDTOs, totalCount).map(tuple -> {
-            java.util.List<ProjectDTO> content = tuple.getT1();
-            long total = tuple.getT2();
-            int totalPages = (int) Math.ceil((double) total / size);
-
-            return new PageDTO<>(content, total, totalPages, page, size);
-        });
-    }
-
-    // Implémentation de la méthode existante pour maintenir la compatibilité
-    @Override
-    @Transactional(readOnly = true)
-    public Mono<PageDTO<ProjectDTO>> getPaginatedProjects(int page, int size) {
-        // Appel à la nouvelle méthode avec category = null
-        return getPaginatedProjects(page, size, null);
+        return projectFlux
+            .flatMap(project ->
+                projectRepository
+                    .findTagsByProjectId(project.getId())
+                    .collectList()
+                    .map(tags -> {
+                        project.setTags(new java.util.HashSet<>(tags));
+                        return project;
+                    })
+            )
+            .map(projectMapper::toDto);
     }
 
     @Override
@@ -758,19 +693,15 @@ public class ProjectServiceImpl implements ProjectService {
         LOG.debug("Request to get top 10 popular projects");
         return projectRepository
             .findTop10PopularProjects()
-            .flatMap(project -> {
-                if (project.getTeamId() != null) {
-                    return teamRepository
-                        .findById(project.getTeamId())
-                        .map(team -> {
-                            project.setTeam(team);
-                            return project;
-                        })
-                        .defaultIfEmpty(project);
-                } else {
-                    return Mono.just(project);
-                }
-            })
+            .flatMap(project ->
+                projectRepository
+                    .findTagsByProjectId(project.getId())
+                    .collectList()
+                    .map(tags -> {
+                        project.setTags(new java.util.HashSet<>(tags));
+                        return project;
+                    })
+            )
             .map(projectMapper::toDto)
             .doOnNext(project -> LOG.debug("Found popular project: {}", project.getTitle()));
     }
@@ -814,7 +745,7 @@ public class ProjectServiceImpl implements ProjectService {
             .then();
     }
 
-    private Flux<ProjectSection> saveSections(Project project, java.util.List<ProjectSubmissionDTO.SectionDTO> sections) {
+    private Flux<ProjectSection> saveSections(Project project, List<ProjectSubmissionDTO.SectionDTO> sections) {
         if (sections == null || sections.isEmpty()) return Flux.empty();
         return Flux.fromIterable(sections)
             .index()
@@ -831,7 +762,7 @@ public class ProjectServiceImpl implements ProjectService {
             });
     }
 
-    private Flux<ProjectGallery> saveGalleryImages(Project project, java.util.List<ProjectSubmissionDTO.GalleryImageDTO> images) {
+    private Flux<ProjectGallery> saveGalleryImages(Project project, List<ProjectSubmissionDTO.GalleryImageDTO> images) {
         if (images == null || images.isEmpty()) return Flux.empty();
         return Flux.fromIterable(images)
             .index()
@@ -847,7 +778,7 @@ public class ProjectServiceImpl implements ProjectService {
             });
     }
 
-    private Flux<ExternalLink> saveExternalLinks(Project project, java.util.List<ProjectSubmissionDTO.ExternalLinkDTO> links) {
+    private Flux<ExternalLink> saveExternalLinks(Project project, List<ProjectSubmissionDTO.ExternalLinkDTO> links) {
         if (links == null || links.isEmpty()) return Flux.empty();
         return Flux.fromIterable(links).flatMap(linkDTO -> {
             ExternalLink link = new ExternalLink().title(linkDTO.getTitle()).url(linkDTO.getUrl()).type(linkDTO.getType()).project(project);
