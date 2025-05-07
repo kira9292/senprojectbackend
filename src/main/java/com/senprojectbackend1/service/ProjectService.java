@@ -193,21 +193,19 @@ public interface ProjectService {
     /**
      * Récupère une page de projets.
      *
-     * @param page numéro de la page (commence à 0)
-     * @param size taille de la page (nombre d'éléments par page)
+     * @param pageable la pagination Spring
      * @param categories liste des catégories (tags) à filtrer (optionnel, union)
      * @return un Flux contenant les ProjectDTO
      */
-    Flux<ProjectDTO> getPaginatedProjects(int page, int size, List<String> categories);
+    Flux<ProjectDTO> getPaginatedProjects(Pageable pageable, List<String> categories);
 
     /**
      * Récupère les projets les plus populaires (paginé).
      *
-     * @param page numéro de la page (commence à 0)
-     * @param size taille de la page (nombre d'éléments par page)
+     * @param pageable la pagination Spring
      * @return un Flux contenant les ProjectDTO populaires
      */
-    Flux<ProjectDTO> getTopPopularProjects(int page, int size);
+    Flux<ProjectDTO> getTopPopularProjects(Pageable pageable);
 
     // Ajout des méthodes utilitaires pour le traitement des images
     Mono<ProjectSubmissionDTO> processGalleryImages(ProjectSubmissionDTO projectData, String userLogin);
@@ -255,4 +253,19 @@ public interface ProjectService {
     Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData, String userLogin);
     Mono<ProjectSubmissionDTO> processAllImages(ProjectSubmissionDTO projectData, String userLogin);
     Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin);
+
+    /**
+     * Retourne le nombre total de projets (tous).
+     */
+    Mono<Long> countAllProjects();
+
+    /**
+     * Retourne le nombre total de projets correspondant à au moins une des catégories.
+     */
+    Mono<Long> countProjectsByCategories(List<String> categories);
+
+    /**
+     * Retourne le nombre total de projets populaires (PUBLISHED et non supprimés).
+     */
+    Mono<Long> countPopularProjects();
 }

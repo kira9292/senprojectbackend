@@ -664,20 +664,31 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true)
-    public Flux<ProjectDTO> getPaginatedProjects(int page, int size, List<String> categories) {
-        LOG.debug("Request to get paginated Projects, page: {}, size: {}, categories: {}", page, size, categories);
+    public Flux<ProjectDTO> getPaginatedProjects(Pageable pageable, List<String> categories) {
+        LOG.debug("Request to get paginated Projects - pageable: {}, categories: {}", pageable, categories);
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
         int offset = page * size;
         if (categories == null || categories.isEmpty()) {
-            Pageable pageable = PageRequest.of(page, size);
             return projectRepository
                 .findAllWithEagerRelationships(pageable)
                 .flatMap(project ->
                     projectRepository
                         .findTagsByProjectId(project.getId())
                         .collectList()
-                        .map(tags -> {
+                        .flatMap(tags -> {
                             project.setTags(new java.util.HashSet<>(tags));
-                            return project;
+                            if (project.getTeamId() != null) {
+                                return teamRepository
+                                    .findById(project.getTeamId())
+                                    .map(team -> {
+                                        project.setTeam(team);
+                                        return project;
+                                    })
+                                    .defaultIfEmpty(project);
+                            } else {
+                                return reactor.core.publisher.Mono.just(project);
+                            }
                         })
                 )
                 .map(projectMapper::toDto);
@@ -690,9 +701,19 @@ public class ProjectServiceImpl implements ProjectService {
                     projectRepository
                         .findTagsByProjectId(project.getId())
                         .collectList()
-                        .map(tags -> {
+                        .flatMap(tags -> {
                             project.setTags(new java.util.HashSet<>(tags));
-                            return project;
+                            if (project.getTeamId() != null) {
+                                return teamRepository
+                                    .findById(project.getTeamId())
+                                    .map(team -> {
+                                        project.setTeam(team);
+                                        return project;
+                                    })
+                                    .defaultIfEmpty(project);
+                            } else {
+                                return reactor.core.publisher.Mono.just(project);
+                            }
                         })
                 )
                 .map(projectMapper::toDto)
@@ -703,10 +724,11 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true)
-    public Flux<ProjectDTO> getTopPopularProjects(int page, int size) {
-        LOG.debug("Request to get top popular projects - page: {}, size: {}", page, size);
+    public Flux<ProjectDTO> getTopPopularProjects(Pageable pageable) {
+        LOG.debug("Request to get top popular projects - pageable: {}", pageable);
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
         int offset = page * size;
-        // On récupère tous les projets publiés et non supprimés, puis on trie côté Java (si pas possible en SQL)
         return projectRepository
             .findAll()
             .filter(p -> p.getStatus() != null && p.getStatus().name().equals("PUBLISHED") && Boolean.FALSE.equals(p.getIsDeleted()))
@@ -960,5 +982,31 @@ public class ProjectServiceImpl implements ProjectService {
                     .flatMap(user -> notificationService.createNotification(user.getId(), message, type, project.getId().toString()))
             )
             .then();
+    }
+
+    @Override
+    public Mono<Long> countAllProjects() {
+        return projectRepository.count();
+    }
+
+    @Override
+    public Mono<Long> countProjectsByCategories(List<String> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return projectRepository.count();
+        }
+        // Union : compter les projets distincts ayant au moins un des tags
+        return Flux.fromIterable(categories)
+            .flatMap(cat -> projectRepository.findByTagName(cat, Integer.MAX_VALUE, 0))
+            .distinct(Project::getId)
+            .count();
+    }
+
+    @Override
+    public Mono<Long> countPopularProjects() {
+        // Projets PUBLISHED et non supprimés
+        return projectRepository
+            .findAll()
+            .filter(p -> p.getStatus() != null && p.getStatus().name().equals("PUBLISHED") && Boolean.FALSE.equals(p.getIsDeleted()))
+            .count();
     }
 }

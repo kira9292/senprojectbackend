@@ -17,9 +17,11 @@ import java.util.Objects;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -412,31 +414,43 @@ public class ProjectResource {
     /**
      * {@code GET /projects/paginated} : Récupère une page de projets.
      *
-     * @param page numéro de la page (commence à 0)
-     * @param size taille de la page (nombre d'éléments par page, par défaut à 3)
+     * @param pageable the pagination information.
      * @param categories liste des catégories (tags) à filtrer (optionnel, union)
-     * @return la réponse avec statut {@code 200 (OK)} et la liste des projets dans le corps
+     * @return the response with status {@code 200 (OK)} and the list of projects in body
      */
     @GetMapping("/paginated")
-    public Flux<ProjectDTO> getPaginatedProjects(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "3") int size,
-        @RequestParam(value = "category", required = false) List<String> categories
+    public Mono<ResponseEntity<Flux<ProjectDTO>>> getPaginatedProjects(
+        @ParameterObject Pageable pageable,
+        @RequestParam(value = "category", required = false) List<String> categories,
+        ServerHttpRequest request
     ) {
-        LOG.debug("REST request to get paginated Projects - page: {}, size: {}, categories: {}", page, size, categories);
-        return projectService.getPaginatedProjects(page, size, categories);
+        LOG.debug("REST request to get paginated Projects - pageable: {}, categories: {}", pageable, categories);
+        Mono<Long> totalMono = (categories == null || categories.isEmpty())
+            ? projectService.countAllProjects()
+            : projectService.countProjectsByCategories(categories);
+        Flux<ProjectDTO> flux = projectService.getPaginatedProjects(pageable, categories);
+        return totalMono.map(total -> {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("X-Total-Count", String.valueOf(total));
+            return ResponseEntity.ok().headers(headers).body(flux);
+        });
     }
 
     /**
      * {@code GET /projects/popular} : Récupère les projets les plus populaires (paginé).
      *
-     * @param page numéro de la page (commence à 0)
-     * @param size taille de la page (nombre d'éléments par page, par défaut à 10)
-     * @return la réponse avec statut {@code 200 (OK)} et la liste des projets populaires dans le corps
+     * @param pageable the pagination information.
+     * @return the response with status {@code 200 (OK)} and the list of popular projects in body
      */
     @GetMapping("/popular")
-    public Flux<ProjectDTO> getTopPopularProjects(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        LOG.debug("REST request to get top popular projects - page: {}, size: {}", page, size);
-        return projectService.getTopPopularProjects(page, size);
+    public Mono<ResponseEntity<Flux<ProjectDTO>>> getTopPopularProjects(@ParameterObject Pageable pageable, ServerHttpRequest request) {
+        LOG.debug("REST request to get top popular projects - pageable: {}", pageable);
+        Mono<Long> totalMono = projectService.countPopularProjects();
+        Flux<ProjectDTO> flux = projectService.getTopPopularProjects(pageable);
+        return totalMono.map(total -> {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("X-Total-Count", String.valueOf(total));
+            return ResponseEntity.ok().headers(headers).body(flux);
+        });
     }
 }
