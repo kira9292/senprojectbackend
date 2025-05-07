@@ -1,6 +1,7 @@
 package com.senprojectbackend1.service.dto;
 
 import com.senprojectbackend1.domain.enumeration.LinkType;
+import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.domain.enumeration.ProjectType;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -43,6 +44,8 @@ public class ProjectSubmissionDTO implements Serializable {
     private Long id;
 
     private List<TagInputDTO> tags;
+
+    private ProjectStatus status;
 
     // Getters et setters
     public String getTitle() {
@@ -147,6 +150,14 @@ public class ProjectSubmissionDTO implements Serializable {
 
     public void setTags(List<TagInputDTO> tags) {
         this.tags = tags;
+    }
+
+    public ProjectStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ProjectStatus status) {
+        this.status = status;
     }
 
     // Classes imbriquées pour les sous-entités

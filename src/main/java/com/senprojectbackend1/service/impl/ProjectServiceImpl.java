@@ -5,7 +5,9 @@ import com.senprojectbackend1.domain.criteria.ProjectCriteria;
 import com.senprojectbackend1.domain.enumeration.EngagementType;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.domain.enumeration.ProjectStatus;
+import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.*;
+import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.TagService;
@@ -16,7 +18,6 @@ import com.senprojectbackend1.service.mapper.ProjectSectionMapper;
 import com.senprojectbackend1.service.mapper.ProjectSimpleMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -193,20 +194,17 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(readOnly = true)
     public Flux<ProjectSimpleDTO> findAllProjectsOfCurrentUser(String userLogin) {
         LOG.debug("Request to get all Projects of current user: {}", userLogin);
-
         return userProfileRepository
             .findOneByLogin(userLogin)
             .flatMapMany(userProfile -> {
                 if (userProfile == null) {
                     return Flux.empty();
                 }
-
                 // Utiliser la méthode qui charge les relations eager comme findOneWithEagerRelationships
                 return projectRepository
                     .findAllByTeamMemberWithEagerRelationships(userProfile.getId())
                     .flatMap(project -> {
                         ProjectSimpleDTO dto = projectSimpleMapper.toDto(project);
-
                         // Récupérer et mapper les tags du projet
                         Mono<Set<TagDTO>> tagsMono = tagRepository
                             .findByProjectId(project.getId())
@@ -218,7 +216,6 @@ public class ProjectServiceImpl implements ProjectService {
                             })
                             .collect(Collectors.toSet())
                             .doOnNext(tags -> LOG.debug("Project tags found: {}", tags));
-
                         // Fusionner les résultats et construire le DTO final
                         return tagsMono.map(tags -> {
                             dto.setTags(tags);
@@ -242,40 +239,17 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public Mono<Void> deleteProject(Long id) {
         LOG.debug("Request to delete Project : {}", id);
-        return findOne(id).flatMap(project -> {
-            // D'abord supprimer le projet
-            return delete(id).then(
-                Mono.defer(() -> {
-                    // Ensuite créer la notification pour tous les membres de l'équipe
-                    if (project.getTeam() != null && project.getTeam().getId() != null) {
-                        LOG.debug("Creating notifications for team members of project: {}", project.getTitle());
-                        return teamMembershipRepository
-                            .findAll()
-                            .filter(membership -> membership.getTeamId().equals(project.getTeam().getId()))
-                            .flatMap(membership -> {
-                                LOG.debug("Processing notification for team member: {}", membership.getMembersId());
-                                return userProfileRepository
-                                    .findById(membership.getMembersId())
-                                    .flatMap(user -> {
-                                        LOG.debug("Creating notification for user: {}", user.getLogin());
-                                        return notificationService.createNotification(
-                                            user.getId(),
-                                            "Le projet '" + project.getTitle() + "' a été supprimé",
-                                            NotificationType.PROJECT_DELETED,
-                                            id.toString()
-                                        );
-                                    })
-                                    .onErrorResume(e -> {
-                                        LOG.error("Error creating notification for user {}: {}", membership.getMembersId(), e.getMessage());
-                                        return Mono.empty();
-                                    });
-                            })
-                            .then();
-                    }
-                    return Mono.empty();
-                })
-            );
-        });
+        return projectRepository
+            .findById(id)
+            .flatMap(project -> {
+                if (project.getTeam() == null || project.getTeam().getId() == null) {
+                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
+                }
+                // Vérification des droits : LEAD ou MODIFY
+                return checkUserIsAcceptedLeadOrModify(project.getTeam().getId(), project.getLastUpdatedBy())
+                    .then(delete(id))
+                    .then(notifyTeamOnDelete(project, project.getLastUpdatedBy()));
+            });
     }
 
     @Override
@@ -438,19 +412,10 @@ public class ProjectServiceImpl implements ProjectService {
                         if (project.getTeam() == null) {
                             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project has no team"));
                         }
-                        return teamRepository
-                            .findMemberStatus(project.getTeam().getId(), userProfile.getId())
-                            .switchIfEmpty(
-                                Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of the team"))
-                            )
-                            .flatMap(status -> {
-                                if (!"ACCEPTED".equals(status)) {
-                                    return Mono.error(
-                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team")
-                                    );
-                                }
-                                return projectRepository.updateProjectStatusToDeleted(id);
-                            });
+                        // Vérification des droits : LEAD ou MODIFY
+                        return checkUserHasRole(project.getTeam().getId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).then(
+                            projectRepository.updateProjectStatusToDeleted(id)
+                        );
                     });
             });
     }
@@ -464,147 +429,111 @@ public class ProjectServiceImpl implements ProjectService {
                 if (project.getTeamId() == null) {
                     return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Projet sans équipe"));
                 }
-                return userProfileRepository
-                    .findOneByLogin(userLogin)
-                    .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found")))
-                    .flatMap(userProfile ->
-                        teamMembershipRepository
-                            .findByTeamIdAndUserId(project.getTeamId(), userProfile.getId())
-                            .switchIfEmpty(
-                                Mono.error(
-                                    new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas membre de l'équipe du projet")
-                                )
-                            )
-                            .flatMap(membership -> {
-                                if (!"ACCEPTED".equals(membership.getStatus())) {
-                                    return Mono.error(
-                                        new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous devez être membre accepté de l'équipe")
-                                    );
-                                }
-                                String role = membership.getRole();
-                                if ("PUBLISHED".equalsIgnoreCase(newStatus)) {
-                                    return com.senprojectbackend1.security.SecurityUtils.hasCurrentUserAnyOfAuthorities(
-                                        "ROLE_ADMIN",
-                                        "ROLE_SUPPORT"
-                                    ).flatMap(isAdminOrSupport -> {
-                                        if (!isAdminOrSupport) {
-                                            return Mono.error(
-                                                new ResponseStatusException(
-                                                    HttpStatus.FORBIDDEN,
-                                                    "Seuls les admins/support peuvent publier"
-                                                )
-                                            );
-                                        }
-                                        project.setStatus(com.senprojectbackend1.domain.enumeration.ProjectStatus.valueOf(newStatus));
-                                        return projectRepository.save(project).map(projectMapper::toDto);
-                                    });
-                                } else if (!"LEAD".equals(role) && !"MODIFY".equals(role)) {
-                                    return Mono.error(
-                                        new ResponseStatusException(
-                                            HttpStatus.FORBIDDEN,
-                                            "Seuls les LEAD ou MODIFY peuvent changer le statut"
-                                        )
-                                    );
-                                }
-                                // Appliquer le changement
-                                project.setStatus(com.senprojectbackend1.domain.enumeration.ProjectStatus.valueOf(newStatus));
-                                return projectRepository.save(project).map(projectMapper::toDto);
-                            })
+                if ("PUBLISHED".equalsIgnoreCase(newStatus)) {
+                    // Seuls les ADMIN ou SUPPORT peuvent publier
+                    return SecurityUtils.hasCurrentUserAnyOfAuthorities("ROLE_ADMIN", "ROLE_SUPPORT").flatMap(isAdminOrSupport -> {
+                        if (Boolean.FALSE.equals(isAdminOrSupport)) {
+                            return Mono.error(
+                                new ResponseStatusException(HttpStatus.FORBIDDEN, "Seuls les admins/support peuvent publier")
+                            );
+                        }
+                        project.setStatus(ProjectStatus.valueOf(newStatus));
+                        return projectRepository.save(project).map(projectMapper::toDto);
+                    });
+                } else {
+                    // Seuls les LEAD ou MODIFY peuvent changer le statut
+                    return checkUserHasRole(project.getTeamId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).then(
+                        Mono.defer(() -> {
+                            project.setStatus(ProjectStatus.valueOf(newStatus));
+                            return projectRepository.save(project).map(projectMapper::toDto);
+                        })
                     );
+                }
             });
     }
 
     @Override
-    public Mono<ProjectDTO> submitProject(ProjectSubmissionDTO submissionDTO, String userLogin) {
-        if (submissionDTO.getTitle() == null || submissionDTO.getTitle().trim().length() < 3) {
+    public Mono<ProjectDTO> submitProject(ProjectSubmissionDTO dto, String userLogin) {
+        return createOrUpdateProject(dto, userLogin, false);
+    }
+
+    @Override
+    public Mono<ProjectDTO> updateSubmittedProject(ProjectSubmissionDTO dto, String userLogin) {
+        return createOrUpdateProject(dto, userLogin, true);
+    }
+
+    private Mono<ProjectDTO> createOrUpdateProject(ProjectSubmissionDTO dto, String userLogin, boolean isUpdate) {
+        if (dto.getTitle() == null || dto.getTitle().trim().length() < 3) {
             return Mono.error(
                 new BadRequestAlertException("Le titre du projet doit contenir au moins 3 caractères", "project", "titleinvalid")
             );
         }
-
-        // Vérification de l'existence d'un projet avec le même titre
-        return projectRepository
-            .findByTitle(submissionDTO.getTitle().trim())
-            .collectList()
-            .flatMap(existingProjects -> {
-                boolean titleExists = existingProjects
-                    .stream()
-                    .anyMatch(p -> submissionDTO.getId() == null || !submissionDTO.getId().equals(p.getId()));
-
-                if (titleExists) {
-                    return Mono.error(new BadRequestAlertException("Un projet avec ce titre existe déjà", "project", "titleexists"));
-                }
-
-                boolean isUpdate = submissionDTO.getId() != null;
-                Mono<Project> projectMono;
-                if (isUpdate) {
-                    projectMono = projectRepository
-                        .findById(submissionDTO.getId())
-                        .switchIfEmpty(Mono.error(new BadRequestAlertException("Projet non trouvé", "project", "notfound")))
-                        .flatMap(existingProject -> {
-                            if (existingProject.getTeamId() == null) {
-                                return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
-                            }
-                            return userProfileRepository
-                                .findOneByLogin(userLogin)
-                                .switchIfEmpty(
-                                    Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound"))
-                                )
-                                .flatMap(userProfile ->
-                                    teamMembershipRepository
-                                        .findByTeamIdAndUserId(existingProject.getTeamId(), userProfile.getId())
-                                        .switchIfEmpty(
-                                            Mono.error(
-                                                new BadRequestAlertException(
-                                                    "Vous n'êtes pas membre de l'équipe du projet",
-                                                    "project",
-                                                    "notmember"
-                                                )
-                                            )
-                                        )
-                                        .flatMap(membership -> {
-                                            if (!"ACCEPTED".equals(membership.getStatus())) {
-                                                return Mono.error(
-                                                    new BadRequestAlertException(
-                                                        "Votre statut d'équipe n'est pas accepté",
-                                                        "project",
-                                                        "notaccepted"
-                                                    )
-                                                );
-                                            }
-                                            if (!"LEAD".equals(membership.getRole()) && !"MODIFY".equals(membership.getRole())) {
-                                                return Mono.error(
-                                                    new BadRequestAlertException(
-                                                        "Seuls les membres LEAD ou MODIFY peuvent modifier le projet",
-                                                        "project",
-                                                        "noright"
-                                                    )
-                                                );
-                                            }
-                                            existingProject
-                                                .title(submissionDTO.getTitle())
-                                                .description(submissionDTO.getDescription())
-                                                .showcase(submissionDTO.getShowcase())
-                                                .type(submissionDTO.getType())
-                                                .openToCollaboration(submissionDTO.isOpenToCollaboration())
-                                                .openToFunding(submissionDTO.isOpenToFunding())
-                                                .updatedAt(java.time.Instant.now())
-                                                .lastUpdatedBy(userLogin);
-                                            return enrichProjectWithAssociations(existingProject, submissionDTO);
-                                        })
-                                );
+        if (!isUpdate) {
+            // Création : teamId obligatoire et doit exister
+            if (dto.getTeamId() == null) {
+                return Mono.error(
+                    new BadRequestAlertException("Une équipe valide doit être renseignée pour le projet", "project", "noteam")
+                );
+            }
+            // Interdire la création directe en PUBLISHED sauf pour ADMIN/SUPPORT
+            if (dto.getStatus() != null && "PUBLISHED".equalsIgnoreCase(dto.getStatus().toString())) {
+                return SecurityUtils.hasCurrentUserAnyOfAuthorities("ROLE_ADMIN", "ROLE_SUPPORT").flatMap(isAdminOrSupport -> {
+                    if (Boolean.FALSE.equals(isAdminOrSupport)) {
+                        return Mono.error(
+                            new BadRequestAlertException(
+                                "Seuls les admins/support peuvent publier un projet directement",
+                                "project",
+                                "forbidden"
+                            )
+                        );
+                    }
+                    // On laisse continuer la création (status PUBLISHED autorisé)
+                    return teamRepository
+                        .findById(dto.getTeamId())
+                        .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
+                        .flatMap(team -> {
+                            Project project = new Project()
+                                .title(dto.getTitle())
+                                .description(dto.getDescription())
+                                .showcase(dto.getShowcase())
+                                .status(ProjectStatus.PUBLISHED)
+                                .createdAt(java.time.Instant.now())
+                                .updatedAt(java.time.Instant.now())
+                                .openToCollaboration(dto.isOpenToCollaboration())
+                                .openToFunding(dto.isOpenToFunding())
+                                .type(dto.getType())
+                                .totalLikes(0)
+                                .totalShares(0)
+                                .totalViews(0)
+                                .totalComments(0)
+                                .totalFavorites(0)
+                                .isDeleted(false)
+                                .createdBy(userLogin)
+                                .lastUpdatedBy(userLogin)
+                                .team(team);
+                            return enrichProjectWithAssociations(project, dto)
+                                .flatMap(projectRepository::save)
+                                .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
+                                .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
+                                .map(projectMapper::toDto);
                         });
-                } else {
+                });
+            }
+            // Vérifier que l'équipe existe (cas normal, status != PUBLISHED)
+            return teamRepository
+                .findById(dto.getTeamId())
+                .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
+                .flatMap(team -> {
                     Project project = new Project()
-                        .title(submissionDTO.getTitle())
-                        .description(submissionDTO.getDescription())
-                        .showcase(submissionDTO.getShowcase())
-                        .status(com.senprojectbackend1.domain.enumeration.ProjectStatus.WAITING_VALIDATION)
+                        .title(dto.getTitle())
+                        .description(dto.getDescription())
+                        .showcase(dto.getShowcase())
+                        .status(ProjectStatus.WAITING_VALIDATION)
                         .createdAt(java.time.Instant.now())
                         .updatedAt(java.time.Instant.now())
-                        .openToCollaboration(submissionDTO.isOpenToCollaboration())
-                        .openToFunding(submissionDTO.isOpenToFunding())
-                        .type(submissionDTO.getType())
+                        .openToCollaboration(dto.isOpenToCollaboration())
+                        .openToFunding(dto.isOpenToFunding())
+                        .type(dto.getType())
                         .totalLikes(0)
                         .totalShares(0)
                         .totalViews(0)
@@ -612,15 +541,126 @@ public class ProjectServiceImpl implements ProjectService {
                         .totalFavorites(0)
                         .isDeleted(false)
                         .createdBy(userLogin)
-                        .lastUpdatedBy(userLogin);
-                    projectMono = enrichProjectWithAssociations(project, submissionDTO);
+                        .lastUpdatedBy(userLogin)
+                        .team(team);
+                    return enrichProjectWithAssociations(project, dto)
+                        .flatMap(projectRepository::save)
+                        .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
+                        .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
+                        .map(projectMapper::toDto);
+                });
+        }
+        // Mise à jour
+        if (dto.getId() == null) {
+            return Mono.error(new BadRequestAlertException("ID du projet manquant pour la mise à jour", "project", "idmissing"));
+        }
+        return projectRepository
+            .findById(dto.getId())
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Projet non trouvé", "project", "notfound")))
+            .flatMap(existingProject -> {
+                if (existingProject.getTeamId() == null) {
+                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
                 }
-                return projectMono
-                    .flatMap(projectRepository::save)
-                    .flatMap(savedProject -> processAllSections(savedProject, submissionDTO).thenReturn(savedProject))
-                    .flatMap(savedProject -> notifyTeamMembers(savedProject, userLogin, isUpdate).thenReturn(savedProject))
-                    .map(projectMapper::toDto);
+                return checkUserHasRole(existingProject.getTeamId(), userLogin, java.util.Set.of("LEAD", "MODIFY")).flatMap(membership -> {
+                    // Empêcher la modification de l'équipe sauf si LEAD
+                    if (dto.getTeamId() != null && !dto.getTeamId().equals(existingProject.getTeamId())) {
+                        if (!"LEAD".equals(membership.getRole())) {
+                            return Mono.error(
+                                new BadRequestAlertException("Seul un LEAD peut changer l'équipe du projet", "project", "noright")
+                            );
+                        }
+                        // Vérifier que la nouvelle équipe existe
+                        return teamRepository
+                            .findById(dto.getTeamId())
+                            .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
+                            .flatMap(newTeam -> {
+                                existingProject.team(newTeam);
+                                return updateProjectFieldsAndNotify(existingProject, dto, userLogin, true);
+                            });
+                    }
+                    return updateProjectFieldsAndNotify(existingProject, dto, userLogin, true);
+                });
+            })
+            .map(projectMapper::toDto);
+    }
+
+    // Met à jour les champs du projet, les associations, les sections, et notifie l'équipe
+    private Mono<Project> updateProjectFieldsAndNotify(
+        Project existingProject,
+        ProjectSubmissionDTO dto,
+        String userLogin,
+        boolean notifyTeam
+    ) {
+        existingProject
+            .title(dto.getTitle())
+            .description(dto.getDescription())
+            .showcase(dto.getShowcase())
+            .type(dto.getType())
+            .openToCollaboration(dto.isOpenToCollaboration())
+            .openToFunding(dto.isOpenToFunding())
+            .updatedAt(java.time.Instant.now())
+            .lastUpdatedBy(userLogin);
+        return enrichProjectWithAssociations(existingProject, dto)
+            .flatMap(projectRepository::save)
+            .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
+            .flatMap(savedProject -> {
+                if (notifyTeam) {
+                    return notifyTeamOnUpdate(savedProject, userLogin).thenReturn(savedProject);
+                } else {
+                    return Mono.just(savedProject);
+                }
             });
+    }
+
+    // Notifie toute l'équipe que le projet a été mis à jour par userLogin
+    private Mono<Void> notifyTeamOnUpdate(Project project, String userLogin) {
+        return teamMembershipRepository
+            .findAll()
+            .filter(m -> m.getTeamId().equals(project.getTeamId()))
+            .filter(m -> "ACCEPTED".equals(m.getStatus()))
+            .flatMap(m ->
+                userProfileRepository
+                    .findById(m.getMembersId())
+                    .flatMap(user ->
+                        notificationService.createNotification(
+                            user.getId(),
+                            "Le projet '" + project.getTitle() + "' a été mis à jour par " + userLogin,
+                            NotificationType.PROJECT_UPDATED,
+                            project.getId().toString()
+                        )
+                    )
+            )
+            .then();
+    }
+
+    private Mono<TeamMembership> checkUserHasRole(Long teamId, String userLogin, java.util.Set<String> rolesAcceptes) {
+        return userProfileRepository
+            .findOneByLogin(userLogin)
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
+            .flatMap(userProfile ->
+                teamMembershipRepository
+                    .findByTeamIdAndUserId(teamId, userProfile.getId())
+                    .switchIfEmpty(
+                        Mono.error(new BadRequestAlertException("Vous n'êtes pas membre de l'équipe du projet", "project", "notmember"))
+                    )
+                    .flatMap(membership -> {
+                        if (!"ACCEPTED".equals(membership.getStatus())) {
+                            return Mono.error(
+                                new BadRequestAlertException("Votre statut d'équipe n'est pas accepté", "project", "notaccepted")
+                            );
+                        }
+                        if (!rolesAcceptes.contains(membership.getRole())) {
+                            return Mono.error(
+                                new BadRequestAlertException("Vous n'avez pas le rôle requis pour cette action", "project", "noright")
+                            );
+                        }
+                        return Mono.just(membership);
+                    })
+            );
+    }
+
+    private Mono<TeamMembership> checkUserIsAcceptedLeadOrModify(Long teamId, String userLogin) {
+        return checkUserHasRole(teamId, userLogin, java.util.Set.of("LEAD", "MODIFY"));
     }
 
     @Override
@@ -700,7 +740,7 @@ public class ProjectServiceImpl implements ProjectService {
             long total = tuple.getT2();
             int totalPages = (int) Math.ceil((double) total / size);
 
-            return new PageDTO<>(content != null ? content : new ArrayList<>(), total, totalPages, page, size);
+            return new PageDTO<>(content, total, totalPages, page, size);
         });
     }
 
@@ -815,84 +855,14 @@ public class ProjectServiceImpl implements ProjectService {
         });
     }
 
-    private Mono<Void> notifyTeamMembers(Project project, String userLogin, boolean isUpdate) {
-        return teamMembershipRepository
-            .findAll()
-            .filter(m -> m.getTeamId().equals(project.getTeamId()))
-            .filter(m -> "ACCEPTED".equals(m.getStatus()))
-            .filter(m -> !m.getMembersId().equals(userLogin))
-            .flatMap(m ->
-                userProfileRepository
-                    .findById(m.getMembersId())
-                    .flatMap(user ->
-                        notificationService.createNotification(
-                            user.getId(),
-                            (isUpdate ? "Le projet '" : "Un nouveau projet '") +
-                            project.getTitle() +
-                            (isUpdate ? "' a été modifié." : "' a été créé."),
-                            com.senprojectbackend1.domain.enumeration.NotificationType.PROJECT_UPDATED,
-                            project.getId().toString()
-                        )
-                    )
-            )
-            .then();
+    private Mono<Void> notifyTeamOnCreate(Project project, String userLogin) {
+        String msg = "Le projet '" + project.getTitle() + "' a été créé par " + userLogin;
+        return sendTeamNotification(project, NotificationType.PROJECT_UPDATED, msg, userLogin);
     }
 
-    @Override
-    public Mono<ProjectDTO> updateSubmittedProject(ProjectSubmissionDTO submissionDTO, String userLogin) {
-        if (submissionDTO.getId() == null) {
-            return Mono.error(new BadRequestAlertException("ID du projet manquant pour la mise à jour", "project", "idmissing"));
-        }
-        return projectRepository
-            .findById(submissionDTO.getId())
-            .switchIfEmpty(Mono.error(new BadRequestAlertException("Projet non trouvé", "project", "notfound")))
-            .flatMap(existingProject -> {
-                if (existingProject.getTeamId() == null) {
-                    return Mono.error(new BadRequestAlertException("Projet sans équipe", "project", "noteam"));
-                }
-                return userProfileRepository
-                    .findOneByLogin(userLogin)
-                    .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
-                    .flatMap(userProfile ->
-                        teamMembershipRepository
-                            .findByTeamIdAndUserId(existingProject.getTeamId(), userProfile.getId())
-                            .switchIfEmpty(
-                                Mono.error(
-                                    new BadRequestAlertException("Vous n'êtes pas membre de l'équipe du projet", "project", "notmember")
-                                )
-                            )
-                            .flatMap(membership -> {
-                                if (!"ACCEPTED".equals(membership.getStatus())) {
-                                    return Mono.error(
-                                        new BadRequestAlertException("Votre statut d'équipe n'est pas accepté", "project", "notaccepted")
-                                    );
-                                }
-                                if (!"LEAD".equals(membership.getRole()) && !"MODIFY".equals(membership.getRole())) {
-                                    return Mono.error(
-                                        new BadRequestAlertException(
-                                            "Seuls les membres LEAD ou MODIFY peuvent modifier le projet",
-                                            "project",
-                                            "noright"
-                                        )
-                                    );
-                                }
-                                // Mise à jour des champs
-                                existingProject
-                                    .title(submissionDTO.getTitle())
-                                    .description(submissionDTO.getDescription())
-                                    .showcase(submissionDTO.getShowcase())
-                                    .type(submissionDTO.getType())
-                                    .openToCollaboration(submissionDTO.isOpenToCollaboration())
-                                    .openToFunding(submissionDTO.isOpenToFunding())
-                                    .updatedAt(java.time.Instant.now())
-                                    .lastUpdatedBy(userLogin);
-                                return enrichProjectWithAssociations(existingProject, submissionDTO)
-                                    .flatMap(projectRepository::save)
-                                    .flatMap(savedProject -> processAllSections(savedProject, submissionDTO).thenReturn(savedProject))
-                                    .map(projectMapper::toDto);
-                            })
-                    );
-            });
+    private Mono<Void> notifyTeamOnDelete(Project project, String userLogin) {
+        String msg = "Le projet '" + project.getTitle() + "' a été supprimé par " + userLogin;
+        return sendTeamNotification(project, NotificationType.PROJECT_DELETED, msg, userLogin);
     }
 
     // --- Début méthodes utilitaires pour le traitement des images ---
@@ -1006,5 +976,20 @@ public class ProjectServiceImpl implements ProjectService {
             return Mono.error(e);
         }
     }
+
     // --- Fin méthodes utilitaires pour le traitement des images ---
+
+    // Utilitaire DRY pour notifier toute l'équipe d'un projet
+    private Mono<Void> sendTeamNotification(Project project, NotificationType type, String message, String userLogin) {
+        return teamMembershipRepository
+            .findAll()
+            .filter(m -> m.getTeamId().equals(project.getTeamId()))
+            .filter(m -> "ACCEPTED".equals(m.getStatus()))
+            .flatMap(m ->
+                userProfileRepository
+                    .findById(m.getMembersId())
+                    .flatMap(user -> notificationService.createNotification(user.getId(), message, type, project.getId().toString()))
+            )
+            .then();
+    }
 }
