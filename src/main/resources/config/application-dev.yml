@@ -20,7 +20,7 @@ logging:
     #    org.hibernate.SQL: DEBUG
     com.senprojectbackend1: INFO
     javax.management.remote.rmi: INFO
-
+    org.springframework.web: DEBUG
     #    logging.level.org.springframework.aop: DEBUG
     org.springframework.security: DEBUG
 #    org.apache.kafka: TRACE

@@ -20,7 +20,7 @@ public class TeamDTO implements Serializable {
     @Size(min = 3, max = 100)
     private String name;
 
-    @Size(max = 1000)
+    @Size(max = 10000)
     private String description;
 
     private String logo;

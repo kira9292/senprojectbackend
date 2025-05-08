@@ -33,7 +33,6 @@ public class Team implements Serializable {
     @Column("description")
     private String description;
 
-    @Size(max = 255)
     @Column("logo")
     private String logo;
 

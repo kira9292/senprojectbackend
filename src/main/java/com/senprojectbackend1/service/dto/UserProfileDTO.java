@@ -31,7 +31,6 @@ public class UserProfileDTO implements Serializable {
     @Size(min = 5, max = 254)
     private String email;
 
-    @Size(max = 256)
     private String imageUrl;
 
     @NotNull(message = "must not be null")

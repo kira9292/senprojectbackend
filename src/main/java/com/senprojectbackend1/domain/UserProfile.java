@@ -48,7 +48,6 @@ public class UserProfile implements Serializable, Persistable<String> {
     @Column("email")
     private String email;
 
-    @Size(max = 256)
     @Column("image_url")
     private String imageUrl;
 

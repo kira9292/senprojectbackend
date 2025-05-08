@@ -428,12 +428,12 @@ public class TeamResource {
         return ReactiveSecurityContextHolder.getContext()
             .map(SecurityContext::getAuthentication)
             .map(Authentication::getName)
-            .flatMap(login -> userProfileService.getUserProfileSimpleByLogin(login))
+            .flatMap(userProfileService::getUserProfileSimpleByLogin)
             .flatMap(currentUser ->
                 teamService
                     .isMember(teamId, currentUser.getId())
                     .flatMap(isMember -> {
-                        if (!isMember) return Mono.error(
+                        if (Boolean.FALSE.equals(isMember)) return Mono.error(
                             new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas membre de cette équipe")
                         );
                         // Vérifier le rôle du demandeur
@@ -494,9 +494,6 @@ public class TeamResource {
         }
         if (teamDTO.getDescription() != null && teamDTO.getDescription().length() > 255) {
             throw new BadRequestAlertException("La description ne peut pas dépasser 255 caractères", ENTITY_NAME, "descriptiontoolong");
-        }
-        if (teamDTO.getLogo() != null && teamDTO.getLogo().length() > 255) {
-            throw new BadRequestAlertException("Le logo ne peut pas dépasser 255 caractères", ENTITY_NAME, "logotoolong");
         }
         // On récupère l'équipe existante pour ne mettre à jour que les champs fournis
         return teamService
