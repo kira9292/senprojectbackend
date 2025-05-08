@@ -113,4 +113,6 @@ public interface UserProfileService {
      * @return the simplified user profile
      */
     Mono<UserProfileSimpleDTO> getUserProfileSimpleByLogin(String login);
+
+    Mono<UserProfileDTO> updateCurrentUserProfile(Map<String, Object> updateDTO);
 }

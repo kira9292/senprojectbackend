@@ -289,4 +289,18 @@ public class UserProfileResource {
     private Mono<UserProfileDTO> getUserProfileByLogin(String login) {
         return userProfileService.getUserProfileCompleteByLogin(login);
     }
+
+    /**
+     * PATCH /user-profiles/me : Permet à l'utilisateur courant de modifier certains champs de son profil.
+     *
+     * @param updateDTO les champs à mettre à jour (JSON partiel)
+     * @return le profil mis à jour
+     */
+    @PatchMapping("/me")
+    public Mono<ResponseEntity<UserProfileDTO>> updateCurrentUserProfile(@RequestBody Map<String, Object> updateDTO) {
+        return userProfileService
+            .updateCurrentUserProfile(updateDTO)
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
 }

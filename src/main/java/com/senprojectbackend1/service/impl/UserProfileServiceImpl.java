@@ -49,6 +49,8 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final TransactionalOperator transactionalOperator;
     private final TagRepository tagRepository;
 
+    private final com.senprojectbackend1.service.CloudinaryService cloudinaryService;
+
     public UserProfileServiceImpl(
         UserProfileRepository userProfileRepository,
         UserProfileMapper userProfileMapper,
@@ -57,7 +59,8 @@ public class UserProfileServiceImpl implements UserProfileService {
         ProjectRepository projectRepository,
         ProjectMapper projectMapper,
         TransactionalOperator transactionalOperator,
-        TagRepository tagRepository
+        TagRepository tagRepository,
+        com.senprojectbackend1.service.CloudinaryService cloudinaryService
     ) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
@@ -67,6 +70,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         this.projectMapper = projectMapper;
         this.transactionalOperator = transactionalOperator;
         this.tagRepository = tagRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @Override
@@ -418,5 +422,113 @@ public class UserProfileServiceImpl implements UserProfileService {
                     return projectDTOWithTeam;
                 })
         );
+    }
+
+    @Override
+    public Mono<UserProfileDTO> updateCurrentUserProfile(Map<String, Object> updateDTO) {
+        return SecurityUtils.getCurrentUserLogin()
+            .flatMap(login -> userProfileRepository.findOneByLogin(login))
+            .flatMap(userProfile -> {
+                boolean needUpdate = false;
+                if (updateDTO.containsKey("firstName")) {
+                    userProfile.setFirstName((String) updateDTO.get("firstName"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("lastName")) {
+                    userProfile.setLastName((String) updateDTO.get("lastName"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("email")) {
+                    userProfile.setEmail((String) updateDTO.get("email"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("langKey")) {
+                    userProfile.setLangKey((String) updateDTO.get("langKey"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("profileLink")) {
+                    userProfile.setProfileLink((String) updateDTO.get("profileLink"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("biography")) {
+                    userProfile.setBiography((String) updateDTO.get("biography"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("birthDate")) {
+                    Object birthDateObj = updateDTO.get("birthDate");
+                    if (birthDateObj instanceof String) {
+                        userProfile.setBirthDate(Instant.parse((String) birthDateObj));
+                        needUpdate = true;
+                    }
+                }
+                if (updateDTO.containsKey("job")) {
+                    userProfile.setJob((String) updateDTO.get("job"));
+                    needUpdate = true;
+                }
+                if (updateDTO.containsKey("sexe")) {
+                    Object sexeObj = updateDTO.get("sexe");
+                    if (sexeObj instanceof String) {
+                        try {
+                            userProfile.setSexe(com.senprojectbackend1.domain.enumeration.Genre.valueOf((String) sexeObj));
+                            needUpdate = true;
+                        } catch (Exception ignored) {}
+                    }
+                }
+                Mono<UserProfile> imageMono = Mono.just(userProfile);
+                if (updateDTO.containsKey("imageUrl")) {
+                    String imageUrl = (String) updateDTO.get("imageUrl");
+                    if (imageUrl != null && !imageUrl.isBlank() && !imageUrl.startsWith("http")) {
+                        imageMono = uploadProfileImage(imageUrl, userProfile.getLogin())
+                            .map(url -> {
+                                userProfile.setImageUrl(url);
+                                return userProfile;
+                            })
+                            .onErrorResume(e -> {
+                                userProfile.setImageUrl("");
+                                return Mono.just(userProfile);
+                            });
+                        needUpdate = true;
+                    } else if (imageUrl != null && imageUrl.startsWith("http")) {
+                        userProfile.setImageUrl(imageUrl);
+                        needUpdate = true;
+                    }
+                }
+                if (!needUpdate) {
+                    return Mono.just(userProfileMapper.toDto(userProfile));
+                }
+                return imageMono
+                    .flatMap(up -> {
+                        up.setLastModifiedDate(Instant.now());
+                        up.setLastModifiedBy("self");
+                        return userProfileRepository.save(up);
+                    })
+                    .map(userProfileMapper::toDto);
+            });
+    }
+
+    private Mono<String> uploadProfileImage(String rawData, String userLogin) {
+        try {
+            String base64Data;
+            String contentType = "image/jpeg";
+            if (rawData.startsWith("data:")) {
+                int commaIndex = rawData.indexOf(",");
+                String metadata = rawData.substring(5, commaIndex);
+                contentType = metadata.split(";")[0];
+                base64Data = rawData.substring(commaIndex + 1);
+            } else {
+                base64Data = rawData;
+            }
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+            String extension = contentType.split("/")[1];
+            String filename = "profile_" + System.currentTimeMillis() + "." + extension;
+            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
+                imageBytes,
+                filename,
+                contentType
+            );
+            return cloudinaryService.uploadImage(file);
+        } catch (Exception e) {
+            return Mono.error(e);
+        }
     }
 }

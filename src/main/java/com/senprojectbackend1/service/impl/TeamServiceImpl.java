@@ -8,6 +8,7 @@ import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.repository.TeamMembershipRepository;
 import com.senprojectbackend1.repository.TeamRepository;
 import com.senprojectbackend1.repository.UserProfileRepository;
+import com.senprojectbackend1.service.CloudinaryService;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.TeamService;
 import com.senprojectbackend1.service.UserProfileService;
@@ -50,6 +51,7 @@ public class TeamServiceImpl implements TeamService {
     private final UserProfileService userProfileService;
     private final NotificationActionUtil notificationActionUtil;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final CloudinaryService cloudinaryService;
 
     public TeamServiceImpl(
         TeamRepository teamRepository,
@@ -61,7 +63,8 @@ public class TeamServiceImpl implements TeamService {
         UserProfileMapper userProfileMapper,
         UserProfileService userProfileService,
         NotificationActionUtil notificationActionUtil,
-        TeamMembershipRepository teamMembershipRepository
+        TeamMembershipRepository teamMembershipRepository,
+        CloudinaryService cloudinaryService
     ) {
         this.teamRepository = teamRepository;
         this.projectRepository = projectRepository;
@@ -73,6 +76,7 @@ public class TeamServiceImpl implements TeamService {
         this.userProfileService = userProfileService;
         this.notificationActionUtil = notificationActionUtil;
         this.teamMembershipRepository = teamMembershipRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @Override
@@ -231,9 +235,17 @@ public class TeamServiceImpl implements TeamService {
         teamDTO.setCreatedAt(Instant.now());
         teamDTO.setTotalLikes(0);
         teamDTO.setIsDeleted(false);
-        // Création de l'équipe
-        return teamRepository
-            .save(teamMapper.toEntity(teamDTO))
+        Mono<TeamDTO> teamMono;
+        if (teamDTO.getLogo() != null && !teamDTO.getLogo().isBlank() && !teamDTO.getLogo().startsWith("http")) {
+            teamMono = uploadTeamLogo(teamDTO.getLogo()).map(url -> {
+                teamDTO.setLogo(url);
+                return teamDTO;
+            });
+        } else {
+            teamMono = Mono.just(teamDTO);
+        }
+        return teamMono
+            .flatMap(dto -> teamRepository.save(teamMapper.toEntity(dto)))
             .flatMap(team ->
                 // Récupérer le login du créateur depuis le contexte de sécurité
                 ReactiveSecurityContextHolder.getContext()
@@ -483,14 +495,48 @@ public class TeamServiceImpl implements TeamService {
 
     @Override
     public Mono<TeamDTO> updateTeamInfo(Long id, String name, String description, String logo) {
-        return teamRepository
-            .updateTeamInfo(id, name, description, logo)
-            .flatMap(rows -> {
-                if (rows > 0) {
-                    return teamRepository.findOneWithEagerRelationships(id).map(teamMapper::toDto);
-                } else {
-                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée"));
-                }
-            });
+        Mono<String> logoMono;
+        if (logo != null && !logo.isBlank() && !logo.startsWith("http")) {
+            logoMono = uploadTeamLogo(logo);
+        } else {
+            logoMono = Mono.just(logo);
+        }
+        return logoMono.flatMap(finalLogo ->
+            teamRepository
+                .updateTeamInfo(id, name, description, finalLogo)
+                .flatMap(rows -> {
+                    if (rows > 0) {
+                        return teamRepository.findOneWithEagerRelationships(id).map(teamMapper::toDto);
+                    } else {
+                        return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée"));
+                    }
+                })
+        );
+    }
+
+    private Mono<String> uploadTeamLogo(String rawData) {
+        try {
+            String base64Data;
+            String contentType = "image/jpeg";
+            if (rawData.startsWith("data:")) {
+                int commaIndex = rawData.indexOf(",");
+                String metadata = rawData.substring(5, commaIndex);
+                contentType = metadata.split(";")[0];
+                base64Data = rawData.substring(commaIndex + 1);
+            } else {
+                base64Data = rawData;
+            }
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+            String extension = contentType.split("/")[1];
+            String filename = "team_logo_" + System.currentTimeMillis() + "." + extension;
+            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
+                imageBytes,
+                filename,
+                contentType
+            );
+            return cloudinaryService.uploadImage(file);
+        } catch (Exception e) {
+            return Mono.error(e);
+        }
     }
 }

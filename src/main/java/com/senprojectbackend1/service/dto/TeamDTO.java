@@ -23,7 +23,6 @@ public class TeamDTO implements Serializable {
     @Size(max = 1000)
     private String description;
 
-    @Size(max = 255)
     private String logo;
 
     private Instant createdAt;
