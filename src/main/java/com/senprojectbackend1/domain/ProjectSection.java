@@ -2,6 +2,7 @@ package com.senprojectbackend1.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.*;
+import java.io.Serial;
 import java.io.Serializable;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -14,6 +15,7 @@ import org.springframework.data.relational.core.mapping.Table;
 @SuppressWarnings("common-java:DuplicatedBlocks")
 public class ProjectSection implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id

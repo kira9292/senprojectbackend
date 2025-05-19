@@ -48,6 +48,17 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
     @Override
     <S extends Project> Mono<S> save(S entity);
 
+    @Query("UPDATE project SET status = :status WHERE id = :id")
+    Mono<Project> updateStatus(long id, String status);
+
+    /* <<<<<<<<<<<<<<  ✨ Windsurf Command ⭐ >>>>>>>>>>>>>>>> */
+    /**
+     * Retrieves all projects from the repository.
+     *
+     * @return a Flux containing all Project entities.
+     */
+
+    /* <<<<<<<<<<  26fa6cc2-0350-4e28-93ef-ad53b5f90b42  >>>>>>>>>>> */
     @Override
     Flux<Project> findAll();
 

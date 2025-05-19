@@ -431,14 +431,14 @@ public class ProjectServiceImpl implements ProjectService {
                             );
                         }
                         project.setStatus(ProjectStatus.valueOf(newStatus));
-                        return projectRepository.save(project).map(projectMapper::toDto);
+                        return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
                     });
                 } else {
                     // Seuls les LEAD ou MODIFY peuvent changer le statut
                     return checkUserHasRole(project.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).then(
                         Mono.defer(() -> {
                             project.setStatus(ProjectStatus.valueOf(newStatus));
-                            return projectRepository.save(project).map(projectMapper::toDto);
+                            return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
                         })
                     );
                 }

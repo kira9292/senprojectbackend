@@ -207,7 +207,7 @@ server:
     session:
       cookie:
         http-only: true
-  max-http-request-header-size: 32KB
+  max-http-request-header-size: 20MB
   tomcat:
     max-swallow-size: 20MB
     max-http-form-post-size: 20MB
