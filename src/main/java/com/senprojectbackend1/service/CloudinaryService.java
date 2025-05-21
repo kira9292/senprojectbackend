@@ -31,4 +31,37 @@ public class CloudinaryService {
             }
         });
     }
+
+    /**
+     * Upload une image encodée en base64 (avec ou sans préfixe data:) sur Cloudinary.
+     * @param rawData la chaîne base64 (avec ou sans préfixe data:)
+     * @param prefix préfixe pour le nom du fichier (ex: "profile", "team", "gallery")
+     * @return Mono<String> url de l'image uploadée
+     */
+    public Mono<String> uploadBase64Image(String rawData, String prefix) {
+        try {
+            String base64Data;
+            String contentType = "image/jpeg";
+            if (rawData.startsWith("data:")) {
+                int commaIndex = rawData.indexOf(",");
+                String metadata = rawData.substring(5, commaIndex);
+                contentType = metadata.split(";")[0];
+                base64Data = rawData.substring(commaIndex + 1);
+            } else {
+                base64Data = rawData;
+            }
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
+            String extension = contentType.split("/")[1];
+            String filename = prefix + "_" + System.currentTimeMillis() + "." + extension;
+            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
+                imageBytes,
+                filename,
+                contentType
+            );
+            return uploadImage(file);
+        } catch (Exception e) {
+            LOG.error("Erreur lors du décodage ou de l'upload de l'image base64", e);
+            return Mono.error(e);
+        }
+    }
 }

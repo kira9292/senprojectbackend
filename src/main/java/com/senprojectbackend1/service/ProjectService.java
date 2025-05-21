@@ -228,7 +228,6 @@ public interface ProjectService {
      */
     Mono<ProjectSubmissionDTO> processSectionImages(ProjectSubmissionDTO projectData, String userLogin);
     Mono<ProjectSubmissionDTO> processAllImages(ProjectSubmissionDTO projectData, String userLogin);
-    Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin);
 
     /**
      * Retourne le nombre total de projets (tous).

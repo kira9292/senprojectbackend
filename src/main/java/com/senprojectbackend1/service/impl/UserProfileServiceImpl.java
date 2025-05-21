@@ -478,7 +478,8 @@ public class UserProfileServiceImpl implements UserProfileService {
                 if (updateDTO.containsKey("imageUrl")) {
                     String imageUrl = (String) updateDTO.get("imageUrl");
                     if (imageUrl != null && !imageUrl.isBlank() && !imageUrl.startsWith("http")) {
-                        imageMono = uploadProfileImage(imageUrl, userProfile.getLogin())
+                        imageMono = cloudinaryService
+                            .uploadBase64Image(imageUrl, "profile")
                             .map(url -> {
                                 userProfile.setImageUrl(url);
                                 return userProfile;
@@ -504,31 +505,5 @@ public class UserProfileServiceImpl implements UserProfileService {
                     })
                     .map(userProfileMapper::toDto);
             });
-    }
-
-    private Mono<String> uploadProfileImage(String rawData, String userLogin) {
-        try {
-            String base64Data;
-            String contentType = "image/jpeg";
-            if (rawData.startsWith("data:")) {
-                int commaIndex = rawData.indexOf(",");
-                String metadata = rawData.substring(5, commaIndex);
-                contentType = metadata.split(";")[0];
-                base64Data = rawData.substring(commaIndex + 1);
-            } else {
-                base64Data = rawData;
-            }
-            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
-            String extension = contentType.split("/")[1];
-            String filename = "profile_" + System.currentTimeMillis() + "." + extension;
-            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
-                imageBytes,
-                filename,
-                contentType
-            );
-            return cloudinaryService.uploadImage(file);
-        } catch (Exception e) {
-            return Mono.error(e);
-        }
     }
 }

@@ -237,10 +237,12 @@ public class TeamServiceImpl implements TeamService {
         teamDTO.setIsDeleted(false);
         Mono<TeamDTO> teamMono;
         if (teamDTO.getLogo() != null && !teamDTO.getLogo().isBlank() && !teamDTO.getLogo().startsWith("http")) {
-            teamMono = uploadTeamLogo(teamDTO.getLogo()).map(url -> {
-                teamDTO.setLogo(url);
-                return teamDTO;
-            });
+            teamMono = cloudinaryService
+                .uploadBase64Image(teamDTO.getLogo(), "team_logo")
+                .map(url -> {
+                    teamDTO.setLogo(url);
+                    return teamDTO;
+                });
         } else {
             teamMono = Mono.just(teamDTO);
         }
@@ -497,7 +499,7 @@ public class TeamServiceImpl implements TeamService {
     public Mono<TeamDTO> updateTeamInfo(Long id, String name, String description, String logo) {
         Mono<String> logoMono;
         if (logo != null && !logo.isBlank() && !logo.startsWith("http")) {
-            logoMono = uploadTeamLogo(logo);
+            logoMono = cloudinaryService.uploadBase64Image(logo, "team_logo");
         } else {
             logoMono = Mono.just(logo);
         }
@@ -512,31 +514,5 @@ public class TeamServiceImpl implements TeamService {
                     }
                 })
         );
-    }
-
-    private Mono<String> uploadTeamLogo(String rawData) {
-        try {
-            String base64Data;
-            String contentType = "image/jpeg";
-            if (rawData.startsWith("data:")) {
-                int commaIndex = rawData.indexOf(",");
-                String metadata = rawData.substring(5, commaIndex);
-                contentType = metadata.split(";")[0];
-                base64Data = rawData.substring(commaIndex + 1);
-            } else {
-                base64Data = rawData;
-            }
-            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
-            String extension = contentType.split("/")[1];
-            String filename = "team_logo_" + System.currentTimeMillis() + "." + extension;
-            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
-                imageBytes,
-                filename,
-                contentType
-            );
-            return cloudinaryService.uploadImage(file);
-        } catch (Exception e) {
-            return Mono.error(e);
-        }
     }
 }

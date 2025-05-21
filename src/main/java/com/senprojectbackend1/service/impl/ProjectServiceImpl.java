@@ -857,7 +857,8 @@ public class ProjectServiceImpl implements ProjectService {
                     if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
                         return Mono.just(imageDTO); // Déjà une URL ou pas d'image
                     }
-                    return uploadBase64Image(rawData, "gallery", userLogin)
+                    return cloudinaryService
+                        .uploadBase64Image(rawData, "gallery")
                         .map(url -> {
                             imageDTO.setImageUrl(url);
                             return imageDTO;
@@ -883,7 +884,8 @@ public class ProjectServiceImpl implements ProjectService {
         if (rawData == null || rawData.isBlank() || rawData.startsWith("http")) {
             return Mono.just(projectData); // Déjà une URL ou pas d'image
         }
-        return uploadBase64Image(rawData, "showcase", userLogin)
+        return cloudinaryService
+            .uploadBase64Image(rawData, "showcase")
             .map(showcaseUrl -> {
                 projectData.setShowcase(showcaseUrl);
                 return projectData;
@@ -905,7 +907,8 @@ public class ProjectServiceImpl implements ProjectService {
                 if (mediaUrl == null || mediaUrl.isBlank() || mediaUrl.startsWith("http")) {
                     return Mono.just(section); // Déjà une URL ou pas d'image
                 }
-                return uploadBase64Image(mediaUrl, "section", userLogin)
+                return cloudinaryService
+                    .uploadBase64Image(mediaUrl, "section")
                     .map(uploadedUrl -> {
                         section.setMediaUrl(uploadedUrl);
                         return section;
@@ -928,35 +931,6 @@ public class ProjectServiceImpl implements ProjectService {
             .flatMap(withGallery -> processShowcaseImage(withGallery, userLogin))
             .flatMap(withShowcase -> processSectionImages(withShowcase, userLogin));
     }
-
-    @Override
-    public Mono<String> uploadBase64Image(String rawData, String prefix, String userLogin) {
-        try {
-            String base64Data;
-            String contentType = "image/jpeg"; // Valeur par défaut
-            if (rawData.startsWith("data:")) {
-                int commaIndex = rawData.indexOf(",");
-                String metadata = rawData.substring(5, commaIndex);
-                contentType = metadata.split(";")[0];
-                base64Data = rawData.substring(commaIndex + 1);
-            } else {
-                base64Data = rawData;
-            }
-            byte[] imageBytes = java.util.Base64.getDecoder().decode(base64Data);
-            String extension = contentType.split("/")[1];
-            String filename = prefix + "_" + System.currentTimeMillis() + "." + extension;
-            org.springframework.web.multipart.MultipartFile file = new com.senprojectbackend1.service.util.ByteArrayMultipartFile(
-                imageBytes,
-                filename,
-                contentType
-            );
-            return cloudinaryService.uploadImage(file);
-        } catch (Exception e) {
-            return Mono.error(e);
-        }
-    }
-
-    // --- Fin méthodes utilitaires pour le traitement des images ---
 
     // Utilitaire DRY pour notifier toute l'équipe d'un projet
     private Mono<Void> sendTeamNotification(Project project, NotificationType type, String message, String userLogin) {
