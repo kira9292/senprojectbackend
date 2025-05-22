@@ -484,6 +484,7 @@ public class TeamResource {
      */
     @PatchMapping("/{id}/edit")
     public Mono<ResponseEntity<TeamDTO>> patchTeamInfo(@PathVariable Long id, @RequestBody TeamDTO teamDTO) {
+        LOG.debug("REST request to patch Team info : {}", id);
         if (teamDTO.getName() != null) {
             if (teamDTO.getName().isEmpty()) {
                 throw new BadRequestAlertException("Le nom de l'équipe ne peut pas être vide", ENTITY_NAME, "nameempty");
@@ -495,16 +496,47 @@ public class TeamResource {
         if (teamDTO.getDescription() != null && teamDTO.getDescription().length() > 255) {
             throw new BadRequestAlertException("La description ne peut pas dépasser 255 caractères", ENTITY_NAME, "descriptiontoolong");
         }
-        // On récupère l'équipe existante pour ne mettre à jour que les champs fournis
-        return teamService
-            .findOne(id)
-            .switchIfEmpty(Mono.error(new BadRequestAlertException("Équipe non trouvée", ENTITY_NAME, "idnotfound")))
-            .flatMap(existing -> {
-                String name = teamDTO.getName() != null ? teamDTO.getName() : existing.getName();
-                String description = teamDTO.getDescription() != null ? teamDTO.getDescription() : existing.getDescription();
-                String logo = teamDTO.getLogo() != null ? teamDTO.getLogo() : existing.getLogo();
-                return teamService.updateTeamInfo(id, name, description, logo);
-            })
-            .map(ResponseEntity::ok);
+
+        // Vérifier si l'utilisateur est membre de l'équipe et a le rôle LEAD
+        return ReactiveSecurityContextHolder.getContext()
+            .map(securityContext -> securityContext.getAuthentication().getName())
+            .flatMap(login -> userProfileService.getUserProfileSimpleByLogin(login))
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Profil utilisateur non trouvé")))
+            .flatMap(userProfile ->
+                teamService
+                    .isMember(id, userProfile.getId())
+                    .flatMap(isMember -> {
+                        if (Boolean.FALSE.equals(isMember)) {
+                            return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'êtes pas membre de cette équipe"));
+                        }
+                        return teamService
+                            .getMemberRole(id, userProfile.getId())
+                            .flatMap(role -> {
+                                if (!"LEAD".equals(role)) {
+                                    return Mono.error(
+                                        new ResponseStatusException(
+                                            HttpStatus.FORBIDDEN,
+                                            "Seul un LEAD peut modifier les informations de l'équipe"
+                                        )
+                                    );
+                                }
+                                // On récupère l'équipe existante pour ne mettre à jour que les champs fournis
+                                return teamService
+                                    .findOne(id)
+                                    .switchIfEmpty(
+                                        Mono.error(new BadRequestAlertException("Équipe non trouvée", ENTITY_NAME, "idnotfound"))
+                                    )
+                                    .flatMap(existing -> {
+                                        String name = teamDTO.getName() != null ? teamDTO.getName() : existing.getName();
+                                        String description = teamDTO.getDescription() != null
+                                            ? teamDTO.getDescription()
+                                            : existing.getDescription();
+                                        String logo = teamDTO.getLogo() != null ? teamDTO.getLogo() : existing.getLogo();
+                                        return teamService.updateTeamInfo(id, name, description, logo);
+                                    })
+                                    .map(ResponseEntity::ok);
+                            });
+                    })
+            );
     }
 }

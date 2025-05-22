@@ -310,6 +310,7 @@ public class ProjectServiceImpl implements ProjectService {
 
         return userProfileService
             .getUserProfileSimpleByLogin(login)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found")))
             .flatMap(userProfile -> {
                 if (userProfile == null) {
                     LOG.error("User profile not found for login: {}", login);
@@ -320,10 +321,19 @@ public class ProjectServiceImpl implements ProjectService {
                 // Vérifier si l'utilisateur a déjà vu ce projet
                 return engagementProjectRepository
                     .findEngagementByUserIdAndProjectIdAndType(userId, id, "VIEW")
-                    .flatMap(existingEngagement -> findOneWithSections(id))
+                    .flatMap(existingEngagement -> {
+                        // Si l'engagement existe, retourner le projet sans incrémenter les vues
+                        LOG.debug("Engagement VIEW found for user {} on project {}. Not incrementing views.", userId, id);
+                        return findOneWithSections(id);
+                    })
                     .switchIfEmpty(
                         // Si l'engagement n'existe pas, on crée un nouvel engagement et on incrémente les vues
                         Mono.defer(() -> {
+                            LOG.debug(
+                                "No Engagement VIEW found for user {} on project {}. Creating engagement and incrementing views.",
+                                userId,
+                                id
+                            );
                             EngagementProject engagement = new EngagementProject();
                             engagement.setType(EngagementType.VIEW);
                             engagement.setCreatedAt(Instant.now());
@@ -333,7 +343,7 @@ public class ProjectServiceImpl implements ProjectService {
                             return engagementProjectRepository
                                 .save(engagement)
                                 .then(projectRepository.incrementTotalViews(id))
-                                .then(findOneWithSections(id));
+                                .then(findOneWithSections(id)); // Retourner le projet après les opérations
                         })
                     );
             });
@@ -484,64 +494,86 @@ public class ProjectServiceImpl implements ProjectService {
                     return teamRepository
                         .findById(dto.getTeamId())
                         .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
-                        .flatMap(team -> {
-                            Project project = new Project()
-                                .title(dto.getTitle())
-                                .description(dto.getDescription())
-                                .showcase(dto.getShowcase())
-                                .status(ProjectStatus.PUBLISHED)
-                                .createdAt(Instant.now())
-                                .updatedAt(Instant.now())
-                                .openToCollaboration(dto.isOpenToCollaboration())
-                                .openToFunding(dto.isOpenToFunding())
-                                .type(dto.getType())
-                                .totalLikes(0)
-                                .totalShares(0)
-                                .totalViews(0)
-                                .totalComments(0)
-                                .totalFavorites(0)
-                                .isDeleted(false)
-                                .createdBy(userLogin)
-                                .lastUpdatedBy(userLogin)
-                                .team(team);
-                            return enrichProjectWithAssociations(project, dto)
-                                .flatMap(projectRepository::save)
-                                .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
-                                .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
-                                .map(projectMapper::toDto);
-                        });
+                        .flatMap(team ->
+                            checkUserIsAcceptedMember(team.getId(), userLogin).flatMap(isMember -> {
+                                if (Boolean.FALSE.equals(isMember)) {
+                                    return Mono.error(
+                                        new BadRequestAlertException(
+                                            "Vous devez être membre de l'équipe pour créer un projet pour celle-ci",
+                                            "project",
+                                            "notmember"
+                                        )
+                                    );
+                                }
+                                Project project = new Project()
+                                    .title(dto.getTitle())
+                                    .description(dto.getDescription())
+                                    .showcase(dto.getShowcase())
+                                    .status(ProjectStatus.PUBLISHED)
+                                    .createdAt(Instant.now())
+                                    .updatedAt(Instant.now())
+                                    .openToCollaboration(dto.isOpenToCollaboration())
+                                    .openToFunding(dto.isOpenToFunding())
+                                    .type(dto.getType())
+                                    .totalLikes(0)
+                                    .totalShares(0)
+                                    .totalViews(0)
+                                    .totalComments(0)
+                                    .totalFavorites(0)
+                                    .isDeleted(false)
+                                    .createdBy(userLogin)
+                                    .lastUpdatedBy(userLogin)
+                                    .team(team);
+                                return enrichProjectWithAssociations(project, dto)
+                                    .flatMap(projectRepository::save)
+                                    .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
+                                    .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
+                                    .map(projectMapper::toDto);
+                            })
+                        );
                 });
             }
             // Vérifier que l'équipe existe (cas normal, status != PUBLISHED)
             return teamRepository
                 .findById(dto.getTeamId())
                 .switchIfEmpty(Mono.error(new BadRequestAlertException("L'équipe spécifiée n'existe pas", "project", "noteam")))
-                .flatMap(team -> {
-                    Project project = new Project()
-                        .title(dto.getTitle())
-                        .description(dto.getDescription())
-                        .showcase(dto.getShowcase())
-                        .status(ProjectStatus.WAITING_VALIDATION)
-                        .createdAt(Instant.now())
-                        .updatedAt(Instant.now())
-                        .openToCollaboration(dto.isOpenToCollaboration())
-                        .openToFunding(dto.isOpenToFunding())
-                        .type(dto.getType())
-                        .totalLikes(0)
-                        .totalShares(0)
-                        .totalViews(0)
-                        .totalComments(0)
-                        .totalFavorites(0)
-                        .isDeleted(false)
-                        .createdBy(userLogin)
-                        .lastUpdatedBy(userLogin)
-                        .team(team);
-                    return enrichProjectWithAssociations(project, dto)
-                        .flatMap(projectRepository::save)
-                        .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
-                        .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
-                        .map(projectMapper::toDto);
-                });
+                .flatMap(team ->
+                    checkUserIsAcceptedMember(team.getId(), userLogin).flatMap(isMember -> {
+                        if (Boolean.FALSE.equals(isMember)) {
+                            return Mono.error(
+                                new BadRequestAlertException(
+                                    "Vous devez être membre de l'équipe pour créer un projet pour celle-ci",
+                                    "project",
+                                    "notmember"
+                                )
+                            );
+                        }
+                        Project project = new Project()
+                            .title(dto.getTitle())
+                            .description(dto.getDescription())
+                            .showcase(dto.getShowcase())
+                            .status(ProjectStatus.WAITING_VALIDATION)
+                            .createdAt(Instant.now())
+                            .updatedAt(Instant.now())
+                            .openToCollaboration(dto.isOpenToCollaboration())
+                            .openToFunding(dto.isOpenToFunding())
+                            .type(dto.getType())
+                            .totalLikes(0)
+                            .totalShares(0)
+                            .totalViews(0)
+                            .totalComments(0)
+                            .totalFavorites(0)
+                            .isDeleted(false)
+                            .createdBy(userLogin)
+                            .lastUpdatedBy(userLogin)
+                            .team(team);
+                        return enrichProjectWithAssociations(project, dto)
+                            .flatMap(projectRepository::save)
+                            .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
+                            .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
+                            .map(projectMapper::toDto);
+                    })
+                );
         }
         // Mise à jour
         if (dto.getId() == null) {
@@ -622,6 +654,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private Mono<TeamMembership> checkUserHasRole(Long teamId, String userLogin, Set<String> rolesAcceptes) {
+        LOG.debug("Checking user {} roles in team {} for required roles {}", userLogin, teamId, rolesAcceptes);
         return userProfileRepository
             .findOneByLogin(userLogin)
             .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
@@ -642,7 +675,7 @@ public class ProjectServiceImpl implements ProjectService {
                                 new BadRequestAlertException("Vous n'avez pas le rôle requis pour cette action", "project", "noright")
                             );
                         }
-                        return Mono.just(membership);
+                        return Mono.just(membership); // Retourne le membership si les conditions sont remplies
                     })
             );
     }
@@ -658,57 +691,41 @@ public class ProjectServiceImpl implements ProjectService {
         int page = pageable.getPageNumber();
         int size = pageable.getPageSize();
         int offset = page * size;
+        Flux<Project> projectFlux;
         if (categories == null || categories.isEmpty()) {
-            return projectRepository
-                .findAllWithEagerRelationships(pageable)
-                .flatMap(project ->
-                    projectRepository
-                        .findTagsByProjectId(project.getId())
-                        .collectList()
-                        .flatMap(tags -> {
-                            project.setTags(new java.util.HashSet<>(tags));
-                            if (project.getTeamId() != null) {
-                                return teamRepository
-                                    .findById(project.getTeamId())
-                                    .map(team -> {
-                                        project.setTeam(team);
-                                        return project;
-                                    })
-                                    .defaultIfEmpty(project);
-                            } else {
-                                return reactor.core.publisher.Mono.just(project);
-                            }
-                        })
-                )
-                .map(projectMapper::toDto);
+            projectFlux = projectRepository.findAllWithEagerRelationships(pageable);
         } else {
             // Union des projets pour toutes les catégories, sans doublons
-            return Flux.fromIterable(categories)
-                .flatMap(cat -> projectRepository.findByTagName(cat, size, offset))
-                .distinct(Project::getId)
-                .flatMap(project ->
-                    projectRepository
-                        .findTagsByProjectId(project.getId())
-                        .collectList()
-                        .flatMap(tags -> {
-                            project.setTags(new java.util.HashSet<>(tags));
-                            if (project.getTeamId() != null) {
-                                return teamRepository
-                                    .findById(project.getTeamId())
-                                    .map(team -> {
-                                        project.setTeam(team);
-                                        return project;
-                                    })
-                                    .defaultIfEmpty(project);
-                            } else {
-                                return reactor.core.publisher.Mono.just(project);
-                            }
-                        })
-                )
-                .map(projectMapper::toDto)
-                .skip(offset)
-                .take(size);
+            projectFlux = Flux.fromIterable(categories)
+                .flatMap(cat -> projectRepository.findByTagName(cat, Integer.MAX_VALUE, 0)) // Récupérer potentiellement plus pour paginer après filtre
+                .distinct(Project::getId);
         }
+
+        return projectFlux
+            .filter(p -> p.getStatus() != null && p.getStatus().equals(ProjectStatus.PUBLISHED) && Boolean.FALSE.equals(p.getIsDeleted())) // <<< Ajouter ce filtre
+            .sort((p1, p2) -> p1.getCreatedAt().compareTo(p2.getCreatedAt())) // Optionnel: tri par date de création par défaut
+            .skip(offset)
+            .take(size)
+            .flatMap(project ->
+                projectRepository
+                    .findTagsByProjectId(project.getId())
+                    .collectList()
+                    .flatMap(tags -> {
+                        project.setTags(new java.util.HashSet<>(tags));
+                        if (project.getTeamId() != null) {
+                            return teamRepository
+                                .findById(project.getTeamId())
+                                .map(team -> {
+                                    project.setTeam(team);
+                                    return project;
+                                })
+                                .defaultIfEmpty(project);
+                        } else {
+                            return reactor.core.publisher.Mono.just(project);
+                        }
+                    })
+            )
+            .map(projectMapper::toDto);
     }
 
     @Override
@@ -972,5 +989,19 @@ public class ProjectServiceImpl implements ProjectService {
             .findAll()
             .filter(p -> p.getStatus() != null && p.getStatus().name().equals("PUBLISHED") && Boolean.FALSE.equals(p.getIsDeleted()))
             .count();
+    }
+
+    private Mono<Boolean> checkUserIsAcceptedMember(Long teamId, String userLogin) {
+        LOG.debug("Checking if user {} is an accepted member of team {}", userLogin, teamId);
+        return userProfileRepository
+            .findOneByLogin(userLogin)
+            .switchIfEmpty(Mono.error(new BadRequestAlertException("Profil utilisateur non trouvé", "project", "usernotfound")))
+            .flatMap(
+                userProfile ->
+                    teamMembershipRepository
+                        .findByTeamIdAndUserId(teamId, userProfile.getId())
+                        .flatMap(membership -> Mono.just("ACCEPTED".equals(membership.getStatus()))) // Si trouvé, mappe le statut en booléen
+                        .switchIfEmpty(Mono.just(false)) // Si pas trouvé, retourne false
+            );
     }
 }
