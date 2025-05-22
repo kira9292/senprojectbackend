@@ -130,24 +130,19 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
 
                 String userId = userProfile.getId();
 
-                if (type.equals("LIKE")) {
-                    // Pour les LIKE, on vérifie d'abord s'il existe
-                    return engagementProjectRepository
-                        .findEngagementByUserIdAndProjectIdAndType(userId, projectId, type)
-                        .hasElement()
-                        .flatMap(exists -> {
-                            if (Boolean.TRUE.equals(exists)) {
-                                // Si le like existe, on le supprime
+                return engagementProjectRepository
+                    .findAllEngagementsByUserIdAndProjectIdAndType(userId, projectId, type)
+                    .collectList()
+                    .flatMap(existingEngagements -> {
+                        if (type.equals("LIKE")) {
+                            if (!existingEngagements.isEmpty()) {
+                                // S'il y a plusieurs likes, on les supprime tous (toggle off)
                                 return engagementProjectRepository
-                                    .findEngagementByUserIdAndProjectIdAndType(userId, projectId, type)
-                                    .flatMap(engagement ->
-                                        engagementProjectRepository
-                                            .delete(engagement)
-                                            .then(projectRepository.decrementTotalLikes(projectId))
-                                            .then(Mono.<EngagementProjectDTO>empty())
-                                    );
+                                    .deleteAll(existingEngagements)
+                                    .then(projectRepository.decrementTotalLikes(projectId))
+                                    .then(Mono.<EngagementProjectDTO>empty());
                             } else {
-                                // Si le like n'existe pas, on le crée
+                                // Aucun like, on en crée un
                                 EngagementProject engagement = new EngagementProject();
                                 engagement.setType(EngagementType.LIKE);
                                 engagement.setCreatedAt(Instant.now());
@@ -162,18 +157,19 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
                                             .thenReturn(engagementProjectMapper.toDto(savedEngagement))
                                     );
                             }
-                        });
-                } else if (type.equals("SHARE")) {
-                    // Pour les SHARE, on vérifie d'abord s'il existe
-                    return engagementProjectRepository
-                        .findEngagementByUserIdAndProjectIdAndType(userId, projectId, type)
-                        .hasElement()
-                        .flatMap(exists -> {
-                            if (Boolean.TRUE.equals(exists)) {
-                                // Si le share existe déjà, on ne fait rien
-                                return Mono.<EngagementProjectDTO>empty();
+                        } else if (type.equals("SHARE")) {
+                            if (!existingEngagements.isEmpty()) {
+                                // S'il y a plusieurs shares, on ne garde qu'un seul, on supprime les autres
+                                if (existingEngagements.size() > 1) {
+                                    return engagementProjectRepository
+                                        .deleteAll(existingEngagements.subList(1, existingEngagements.size()))
+                                        .then(Mono.just(engagementProjectMapper.toDto(existingEngagements.get(0))));
+                                } else {
+                                    // Un seul share existe déjà, on ne fait rien
+                                    return Mono.<EngagementProjectDTO>empty();
+                                }
                             } else {
-                                // Si le share n'existe pas, on le crée
+                                // Aucun share, on en crée un
                                 EngagementProject engagement = new EngagementProject();
                                 engagement.setType(EngagementType.SHARE);
                                 engagement.setCreatedAt(Instant.now());
@@ -188,10 +184,9 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
                                             .thenReturn(engagementProjectMapper.toDto(savedEngagement))
                                     );
                             }
-                        });
-                }
-
-                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid engagement type"));
+                        }
+                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid engagement type"));
+                    });
             });
     }
 
@@ -213,11 +208,24 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
                 }
                 String userId = userProfile.getId();
                 Mono<Boolean> likeMono = engagementProjectRepository
-                    .findEngagementByUserIdAndProjectIdAndType(userId, projectId, "LIKE")
-                    .hasElement();
+                    .findAllEngagementsByUserIdAndProjectIdAndType(userId, projectId, "LIKE")
+                    .collectList()
+                    .flatMap(list -> {
+                        if (list.size() > 1) {
+                            // Supprimer les doublons, ne garder qu'un seul
+                            return engagementProjectRepository.deleteAll(list.subList(1, list.size())).thenReturn(true);
+                        }
+                        return Mono.just(!list.isEmpty());
+                    });
                 Mono<Boolean> shareMono = engagementProjectRepository
-                    .findEngagementByUserIdAndProjectIdAndType(userId, projectId, "SHARE")
-                    .hasElement();
+                    .findAllEngagementsByUserIdAndProjectIdAndType(userId, projectId, "SHARE")
+                    .collectList()
+                    .flatMap(list -> {
+                        if (list.size() > 1) {
+                            return engagementProjectRepository.deleteAll(list.subList(1, list.size())).thenReturn(true);
+                        }
+                        return Mono.just(!list.isEmpty());
+                    });
                 return Mono.zip(likeMono, shareMono).map(tuple ->
                     new com.senprojectbackend1.service.dto.EngagementStatusDTO(tuple.getT1(), tuple.getT2())
                 );

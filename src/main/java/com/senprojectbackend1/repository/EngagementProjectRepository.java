@@ -48,6 +48,13 @@ public interface EngagementProjectRepository extends ReactiveCrudRepository<Enga
         @Param("projectId") Long projectId,
         @Param("type") String type
     );
+
+    @Query("SELECT * FROM engagement_project WHERE user_id = :userId AND project_id = :projectId AND type = :type")
+    Flux<EngagementProject> findAllEngagementsByUserIdAndProjectIdAndType(
+        @Param("userId") String userId,
+        @Param("projectId") Long projectId,
+        @Param("type") String type
+    );
 }
 
 interface EngagementProjectRepositoryInternal {
