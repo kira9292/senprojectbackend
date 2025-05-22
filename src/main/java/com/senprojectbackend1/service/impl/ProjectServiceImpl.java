@@ -658,7 +658,10 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(readOnly = true)
     public Flux<ProjectDTO> getPaginatedProjects(Pageable pageable, List<String> categories) {
         LOG.debug("Request to get paginated Projects - pageable: {}, categories: {}", pageable, categories);
-
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
+        int offset = page * size;
+        Flux<Project> projectFlux;
         // Always create criteria to filter by PUBLISHED status and isDeleted=false
         ProjectCriteria criteria = new ProjectCriteria();
         ProjectCriteria.ProjectStatusFilter statusFilter = new ProjectCriteria.ProjectStatusFilter();
@@ -667,42 +670,37 @@ public class ProjectServiceImpl implements ProjectService {
         if (categories == null || categories.isEmpty()) {
             return projectRepository.findByCriteria(criteria, pageable).map(projectMapper::toDto);
         } else {
-            return Flux.fromIterable(categories)
-                .flatMap(cat -> projectRepository.findByTagName(cat, Integer.MAX_VALUE, 0))
-                .distinct(Project::getId)
-                // Keep the filter here just in case findByTagName returns non-published
-                .filter(
-                    p -> p.getStatus() != null && p.getStatus().equals(ProjectStatus.PUBLISHED) && Boolean.FALSE.equals(p.getIsDeleted())
-                )
-                .sort((p1, p2) -> {
-                    if (p1.getCreatedAt() == null && p2.getCreatedAt() == null) return 0;
-                    if (p1.getCreatedAt() == null) return 1;
-                    if (p2.getCreatedAt() == null) return -1;
-                    return p1.getCreatedAt().compareTo(p2.getCreatedAt());
-                }) // Tri par date de création
-                .skip(pageable.getOffset())
-                .take(pageable.getPageSize())
-                .flatMap(project ->
-                    projectRepository
-                        .findTagsByProjectId(project.getId())
-                        .collectList()
-                        .flatMap(tags -> {
-                            project.setTags(new java.util.HashSet<>(tags));
-                            if (project.getTeamId() != null) {
-                                return teamRepository
-                                    .findById(project.getTeamId())
-                                    .map(team -> {
-                                        project.setTeam(team);
-                                        return project;
-                                    })
-                                    .defaultIfEmpty(project);
-                            } else {
-                                return reactor.core.publisher.Mono.just(project);
-                            }
-                        })
-                )
-                .map(projectMapper::toDto);
+            // Union des projets pour toutes les catégories, sans doublons
+            projectFlux = Flux.fromIterable(categories)
+                .flatMap(cat -> projectRepository.findByTagName(cat, Integer.MAX_VALUE, 0)) // Récupérer potentiellement plus pour paginer après filtre
+                .distinct(Project::getId);
         }
+
+        return projectFlux
+            .filter(p -> p.getStatus() != null && p.getStatus().equals(ProjectStatus.PUBLISHED) && Boolean.FALSE.equals(p.getIsDeleted())) // <<< Ajouter ce filtre
+            .sort((p1, p2) -> p1.getCreatedAt().compareTo(p2.getCreatedAt())) // Optionnel: tri par date de création par défaut
+            .skip(offset)
+            .take(size)
+            .flatMap(project ->
+                projectRepository
+                    .findTagsByProjectId(project.getId())
+                    .collectList()
+                    .flatMap(tags -> {
+                        project.setTags(new java.util.HashSet<>(tags));
+                        if (project.getTeamId() != null) {
+                            return teamRepository
+                                .findById(project.getTeamId())
+                                .map(team -> {
+                                    project.setTeam(team);
+                                    return project;
+                                })
+                                .defaultIfEmpty(project);
+                        } else {
+                            return reactor.core.publisher.Mono.just(project);
+                        }
+                    })
+            )
+            .map(projectMapper::toDto);
     }
 
     @Override
