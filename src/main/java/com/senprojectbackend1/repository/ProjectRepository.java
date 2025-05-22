@@ -22,6 +22,9 @@ import reactor.core.publisher.Mono;
 public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>, ProjectRepositoryInternal {
     Flux<Project> findAllBy(Pageable pageable);
 
+    @Query("SELECT * FROM project entity WHERE entity.status = 'PUBLISHED'")
+    Flux<Project> findAllPublished(Pageable pageable);
+
     @Override
     Mono<Project> findOneWithEagerRelationships(Long id);
 

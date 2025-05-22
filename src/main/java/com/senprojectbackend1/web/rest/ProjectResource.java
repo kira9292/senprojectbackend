@@ -1,6 +1,7 @@
 package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
+import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.ProjectService;
@@ -422,10 +423,24 @@ public class ProjectResource {
         @RequestParam(value = "category", required = false) List<String> categories
     ) {
         LOG.debug("REST request to get paginated Projects - pageable: {}, categories: {}", pageable, categories);
-        Mono<Long> totalMono = (categories == null || categories.isEmpty())
-            ? projectService.countAllProjects()
-            : projectService.countProjectsByCategories(categories);
-        Flux<ProjectDTO> flux = projectService.getPaginatedProjects(pageable, categories);
+        Mono<Long> totalMono;
+        Flux<ProjectDTO> flux;
+
+        ProjectCriteria criteria = new ProjectCriteria();
+        criteria.setStatus(
+            (ProjectCriteria.ProjectStatusFilter) new ProjectCriteria.ProjectStatusFilter().setEquals(ProjectStatus.PUBLISHED)
+        );
+
+        if (categories == null || categories.isEmpty()) {
+            totalMono = projectService.countByCriteria(criteria);
+            flux = projectService.findByCriteria(criteria, pageable);
+        } else {
+            // Existing logic for filtering by category - potentially less efficient
+            // We keep it for now but note that filtering by tag in criteria might be better
+            totalMono = projectService.countProjectsByCategories(categories);
+            flux = projectService.getPaginatedProjects(pageable, categories); // This service method still needs the filtering logic inside for the category case
+        }
+
         return totalMono.map(total -> {
             HttpHeaders headers = new HttpHeaders();
             headers.add("X-Total-Count", String.valueOf(total));
