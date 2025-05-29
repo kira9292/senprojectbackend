@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.6
+    volumes:
+      - elk-elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - discovery.type=single-node
+    restart: always
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.17.6
+    ports:
+      - 5000:5000/tcp
+      - 5000:5000/udp
+      - 5044:5044
+    depends_on:
+      - elasticsearch
+    environment:
+      - 'LS_JAVA_OPTS=-Xms256m -Xmx256m'
+    command: >
+      logstash -e 'input { tcp { port => 5000 codec => json } udp { port => 5000 codec => json } } output { elasticsearch { hosts => ["elasticsearch:9200"] } }'
+    restart: always
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.6
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    restart: always
+
+volumes:
+  elk-elasticsearch:

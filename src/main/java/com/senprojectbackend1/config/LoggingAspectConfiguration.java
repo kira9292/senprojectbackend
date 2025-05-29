@@ -9,6 +9,13 @@ import tech.jhipster.config.JHipsterConstants;
 @EnableAspectJAutoProxy
 public class LoggingAspectConfiguration {
 
+    /**
+     * Aspect de logging amélioré qui combine :
+     * - Logs structurés JSON pour les API calls (REST Controllers)
+     * - Logs classiques pour les services et repositories
+     * - Gestion des exceptions avec format approprié selon le contexte
+     * Actif en dev et prod pour avoir les logs dans Kibana
+     */
     @Bean
     @Profile(JHipsterConstants.SPRING_PROFILE_DEVELOPMENT)
     public LoggingAspect loggingAspect(Environment env) {

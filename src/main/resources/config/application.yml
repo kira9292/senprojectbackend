@@ -180,7 +180,7 @@ spring:
         registration:
           oidc:
             client-id: web_app
-            client-secret: NrCAopcFkQFOU3LocTYHT71oUolUu0SL
+            client-secret: SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
             scope: web-origins ,roles ,openid ,phone ,microprofile-jwt ,offline_access ,jhipster ,address ,profile ,email
       resourceserver:
         jwt:

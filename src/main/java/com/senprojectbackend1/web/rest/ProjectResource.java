@@ -375,8 +375,52 @@ public class ProjectResource {
     @PostMapping("/submit")
     public Mono<ResponseEntity<ProjectDTO>> submitProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
         LOG.debug("[DEBUG] Début de la méthode submitProject");
+        // Valider les données d'entrée ici au lieu du service
+        if (projectSubmissionDTO.getTitle() == null || projectSubmissionDTO.getTitle().trim().length() < 3) {
+            return Mono.error(
+                new BadRequestAlertException("Le titre du projet doit contenir au moins 3 caractères", ENTITY_NAME, "titleinvalid")
+            );
+        }
+        if (projectSubmissionDTO.getTeamId() == null) {
+            return Mono.error(new BadRequestAlertException("Une équipe valide doit être renseignée pour le projet", ENTITY_NAME, "noteam"));
+        }
+        // Interdire la création directe en PUBLISHED sauf pour ADMIN/SUPPORT
+        if (projectSubmissionDTO.getStatus() != null && "PUBLISHED".equalsIgnoreCase(projectSubmissionDTO.getStatus().toString())) {
+            return SecurityUtils.hasCurrentUserAnyOfAuthorities("ROLE_ADMIN", "ROLE_SUPPORT").flatMap(isAdminOrSupport -> {
+                if (Boolean.FALSE.equals(isAdminOrSupport)) {
+                    return Mono.error(
+                        new BadRequestAlertException(
+                            "Seuls les admins/support peuvent publier un projet directement",
+                            ENTITY_NAME,
+                            "forbidden"
+                        )
+                    );
+                }
+                // On laisse continuer la soumission (status PUBLISHED autorisé si ADMIN/SUPPORT)
+                return SecurityUtils.getCurrentUserLogin()
+                    .switchIfEmpty(
+                        Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", ENTITY_NAME, "usernotfound"))
+                    )
+                    .flatMap(currentUserLogin ->
+                        projectService
+                            .processAllImages(projectSubmissionDTO, currentUserLogin)
+                            .flatMap(finalProjectData -> projectService.submitProject(finalProjectData, currentUserLogin))
+                            .handle((result, sink) -> {
+                                try {
+                                    sink.next(ResponseEntity.created(new URI("/api/projects/" + result.getId())).body(result));
+                                } catch (URISyntaxException e) {
+                                    sink.error(new RuntimeException(e));
+                                }
+                            })
+                    );
+            });
+        }
+
+        // Cas normal de soumission (status != PUBLISHED ou utilisateur non ADMIN/SUPPORT)
         return SecurityUtils.getCurrentUserLogin()
-            .switchIfEmpty(Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", "project", "usernotfound")))
+            .switchIfEmpty(
+                Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", ENTITY_NAME, "usernotfound"))
+            )
             .flatMap(currentUserLogin ->
                 projectService
                     .processAllImages(projectSubmissionDTO, currentUserLogin)
@@ -400,8 +444,24 @@ public class ProjectResource {
     @PostMapping("/submit-update")
     public Mono<ResponseEntity<ProjectDTO>> updateSubmittedProject(@Valid @RequestBody ProjectSubmissionDTO projectSubmissionDTO) {
         LOG.debug("[DEBUG] Début de la méthode updateSubmittedProject");
+        // Valider les données d'entrée ici
+        if (projectSubmissionDTO.getId() == null) {
+            return Mono.error(new BadRequestAlertException("ID du projet manquant pour la mise à jour", ENTITY_NAME, "idmissing"));
+        }
+        if (projectSubmissionDTO.getTitle() == null || projectSubmissionDTO.getTitle().trim().length() < 3) {
+            return Mono.error(
+                new BadRequestAlertException("Le titre du projet doit contenir au moins 3 caractères", ENTITY_NAME, "titleinvalid")
+            );
+        }
+
+        // La vérification de l'existence du projet, des droits et du changement d'équipe
+        // sera gérée dans le service (méthode createOrUpdateProject).
+        // Le service lèvera les BadRequestAlertException appropriées.
+
         return SecurityUtils.getCurrentUserLogin()
-            .switchIfEmpty(Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", "project", "usernotfound")))
+            .switchIfEmpty(
+                Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", ENTITY_NAME, "usernotfound"))
+            )
             .flatMap(currentUserLogin ->
                 projectService
                     .processAllImages(projectSubmissionDTO, currentUserLogin)

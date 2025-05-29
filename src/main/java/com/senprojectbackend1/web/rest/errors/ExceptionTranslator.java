@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest.errors;
 
 import static org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation;
 
+import com.senprojectbackend1.service.exception.ProjectBusinessException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
@@ -266,5 +267,17 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler implemen
             "de.",
             "com.senprojectbackend1"
         );
+    }
+
+    @ExceptionHandler(ProjectBusinessException.class)
+    public Mono<ResponseEntity<Object>> handleProjectBusinessException(ProjectBusinessException ex, ServerWebExchange request) {
+        ProblemDetailWithCause problem = ProblemDetailWithCauseBuilder.instance()
+            .withStatus(HttpStatus.BAD_REQUEST.value())
+            .withTitle("Erreur métier")
+            .withDetail(ex.getMessage())
+            .build();
+        if (ex.getEntity() != null) problem.setProperty("entity", ex.getEntity());
+        if (ex.getErrorKey() != null) problem.setProperty("errorKey", ex.getErrorKey());
+        return handleExceptionInternal(ex, problem, buildHeaders(ex), HttpStatus.BAD_REQUEST, request);
     }
 }

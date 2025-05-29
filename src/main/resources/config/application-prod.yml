@@ -15,9 +15,35 @@
 
 logging:
   level:
-    ROOT: INFO
+    ROOT: WARN
     tech.jhipster: INFO
     com.senprojectbackend1: INFO
+
+    # Désactiver complètement les logs Eureka en production
+    com.netflix.eureka: OFF
+    com.netflix.discovery: OFF
+    org.springframework.cloud.netflix.eureka: OFF
+
+    # Logs d'API calls - niveau INFO pour avoir les appels importants
+    org.springframework.web: WARN
+    org.springframework.web.filter.CommonsRequestLoggingFilter: INFO
+    org.springframework.security.web: WARN
+
+    # Désactiver tous les logs non critiques en production
+    org.springframework.boot.actuate: ERROR
+    org.springframework.cloud.config: ERROR
+    org.springframework.kafka: WARN
+    org.apache.kafka: ERROR
+    org.springframework.boot.docker.compose: OFF
+    javax.management.remote.rmi: OFF
+    org.springframework.aop: OFF
+    org.hibernate.SQL: OFF
+    org.springframework.r2dbc: ERROR
+    liquibase: ERROR
+    org.springframework.cloud.sleuth: OFF
+    org.springframework.cloud.loadbalancer: ERROR
+    org.springframework.boot.web.embedded: ERROR
+    org.springframework.web.servlet.DispatcherServlet: WARN
 
 eureka:
   instance:
@@ -135,8 +161,8 @@ jhipster:
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration
-      enabled: false
-      host: localhost
+      enabled: true
+      host: logstash
       port: 5000
       ring-buffer-size: 512
 # ===================================================================

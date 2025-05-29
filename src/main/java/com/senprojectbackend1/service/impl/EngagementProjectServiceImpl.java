@@ -8,6 +8,7 @@ import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.service.EngagementProjectService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.EngagementProjectDTO;
+import com.senprojectbackend1.service.exception.ProjectBusinessException;
 import com.senprojectbackend1.service.mapper.EngagementProjectMapper;
 import java.time.Instant;
 import org.slf4j.Logger;
@@ -16,7 +17,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -125,7 +125,7 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
             .flatMap(userProfile -> {
                 if (userProfile == null) {
                     LOG.error("User profile not found for login: {}", login);
-                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"));
+                    return Mono.error(new ProjectBusinessException("User profile not found"));
                 }
 
                 String userId = userProfile.getId();
@@ -185,7 +185,7 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
                                     );
                             }
                         }
-                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid engagement type"));
+                        return Mono.error(new ProjectBusinessException("Invalid engagement type"));
                     });
             });
     }
@@ -204,7 +204,7 @@ public class EngagementProjectServiceImpl implements EngagementProjectService {
             .flatMap(userProfile -> {
                 if (userProfile == null) {
                     LOG.error("User profile not found for login: {}", login);
-                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"));
+                    return Mono.error(new ProjectBusinessException("User profile not found"));
                 }
                 String userId = userProfile.getId();
                 Mono<Boolean> likeMono = engagementProjectRepository

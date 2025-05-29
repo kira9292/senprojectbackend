@@ -16,6 +16,7 @@ import com.senprojectbackend1.service.dto.ProjectSimple2DTO;
 import com.senprojectbackend1.service.dto.TeamDTO;
 import com.senprojectbackend1.service.dto.TeamMemberDetailsDTO;
 import com.senprojectbackend1.service.dto.UserProfileSimpleDTO;
+import com.senprojectbackend1.service.exception.ProjectBusinessException;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.TeamMapper;
 import com.senprojectbackend1.service.mapper.UserProfileMapper;
@@ -25,11 +26,9 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -181,7 +180,7 @@ public class TeamServiceImpl implements TeamService {
         return teamRepository
             .findOneByIdAndMemberLogin(id, login)
             .filter(Objects::nonNull)
-            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée ou accès refusé")))
+            .switchIfEmpty(Mono.error(new ProjectBusinessException("Équipe non trouvée ou accès refusé")))
             .map(teamMapper::toDto)
             .flatMap(this::enrichTeamWithMembers);
     }
@@ -213,16 +212,14 @@ public class TeamServiceImpl implements TeamService {
         LOG.debug("Request to delete Team and update its projects : {}, user: {}", teamId, userLogin);
         return userProfileService
             .getUserProfileSimpleByLogin(userLogin)
-            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found")))
+            .switchIfEmpty(Mono.error(new ProjectBusinessException("User profile not found")))
             .flatMap(userProfile -> {
                 return teamRepository
                     .findMemberStatus(teamId, userProfile.getId())
-                    .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not a member of the team")))
+                    .switchIfEmpty(Mono.error(new ProjectBusinessException("User is not a member of the team")))
                     .flatMap(status -> {
                         if (!"ACCEPTED".equals(status)) {
-                            return Mono.error(
-                                new ResponseStatusException(HttpStatus.FORBIDDEN, "User is not an accepted member of the team")
-                            );
+                            return Mono.error(new ProjectBusinessException("User is not an accepted member of the team"));
                         }
                         return teamRepository.updateProjectsForDeletedTeam(teamId).then(teamRepository.markTeamAsDeleted(teamId));
                     });
@@ -510,7 +507,7 @@ public class TeamServiceImpl implements TeamService {
                     if (rows > 0) {
                         return teamRepository.findOneWithEagerRelationships(id).map(teamMapper::toDto);
                     } else {
-                        return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipe non trouvée"));
+                        return Mono.error(new ProjectBusinessException("Équipe non trouvée"));
                     }
                 })
         );

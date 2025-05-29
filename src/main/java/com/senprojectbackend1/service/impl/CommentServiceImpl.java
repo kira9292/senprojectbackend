@@ -19,6 +19,7 @@ import com.senprojectbackend1.service.dto.CommentSimpleDTO;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.UserProfileDTO;
 import com.senprojectbackend1.service.dto.UserProfileSimpleDTO;
+import com.senprojectbackend1.service.exception.ProjectBusinessException;
 import com.senprojectbackend1.service.mapper.CommentMapper;
 import com.senprojectbackend1.service.mapper.ProjectMapper;
 import com.senprojectbackend1.service.mapper.UserProfileMapper;
@@ -26,10 +27,8 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -199,7 +198,7 @@ public class CommentServiceImpl implements CommentService {
             .flatMap(userProfile -> {
                 if (userProfile == null) {
                     LOG.error("User profile not found for login: {}", login);
-                    return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"));
+                    return Mono.error(new ProjectBusinessException("User profile not found"));
                 }
 
                 return projectRepository

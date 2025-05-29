@@ -15,16 +15,33 @@
 
 logging:
   level:
-    ROOT: DEBUG
-    tech.jhipster: DEBUG
-    #    org.hibernate.SQL: DEBUG
-    com.senprojectbackend1: INFO
-    javax.management.remote.rmi: INFO
-    org.springframework.web: DEBUG
-    #    logging.level.org.springframework.aop: DEBUG
-    org.springframework.security: DEBUG
-#    org.apache.kafka: TRACE
-#    logging.level.org.springframework.boot.docker.compose: TRACE
+    ROOT: WARN
+    tech.jhipster: INFO
+    com.senprojectbackend1: DEBUG
+
+    # Désactiver les logs verbeux d'Eureka
+    com.netflix.eureka: ERROR
+    com.netflix.discovery: ERROR
+    org.springframework.cloud.netflix.eureka: ERROR
+
+    # Logs d'API calls - garder uniquement les essentiels
+    org.springframework.web: INFO
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+    org.springframework.security.web: INFO
+
+    # Désactiver autres logs non essentiels
+    org.springframework.boot.actuate: WARN
+    org.springframework.cloud.config: WARN
+    org.springframework.kafka: INFO
+    org.apache.kafka: WARN
+    org.springframework.boot.docker.compose: ERROR
+    javax.management.remote.rmi: ERROR
+    org.springframework.aop: ERROR
+    org.hibernate.SQL: ERROR
+    org.springframework.r2dbc: WARN
+    liquibase: WARN
+    org.springframework.cloud.sleuth: ERROR
+    org.springframework.cloud.loadbalancer: ERROR
 eureka:
   instance:
     prefer-ip-address: true
@@ -114,9 +131,9 @@ jhipster:
   #   allow-credentials: true
   #   max-age: 1800
   logging:
-    use-json-format: false # By default, logs are not in Json format
+    use-json-format: true # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration
-      enabled: false
+      enabled: true
       host: localhost
       port: 5000
       ring-buffer-size: 512
