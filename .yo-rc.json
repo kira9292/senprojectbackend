@@ -8,6 +8,7 @@
     "cacheProvider": "redis",
     "creationTimestamp": 1738206683343,
     "databaseType": "sql",
+    "dbRandomPassword": "3825131d7bf1107129bdcd3605ab28f85356e348b94c42138ec045bdf6a5",
     "devDatabaseType": "postgresql",
     "enableSwaggerCodegen": true,
     "enableTranslation": true,
@@ -26,7 +27,7 @@
       "Notification"
     ],
     "jhipsterVersion": "8.9.0",
-    "jwtSecretKey": "OTNjODQ2ZTFiYmMzNjVjNTU5ODhhZTQ0ODNlNTRiNmY4ZjM1YjdjMTNmMjUwY2RkYzBhMjc4NzE2ZGFmYjE5ZjIyZDk5YzBmZjUxZDM2NWFhOGNlYjY1N2Q2NTk2NTdlOGIzMDcxZTcxNjJjZmJkMDZjNTIwNzRhNzdhNjFkYjU=",
+    "jwtSecretKey": "NThhYjA1ZDUxM2ZlM2FmOTVmODc3YzE0MmU3Y2FiNWM2ZjNhMmU0Zjc2MTJmZWNiNWNkYmZmMTYzYmI1ZjA3MjhlZmZiZjRlOTBmYmM2MmMwN2VkNzFmMmQ1ZmUxZjdmYzJkOA==",
     "languages": ["fr", "en"],
     "lastLiquibaseTimestamp": 1743368311000,
     "messageBroker": "kafka",

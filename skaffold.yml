@@ -1,0 +1,9 @@
+apiVersion: skaffold/v1
+kind: Config
+build:
+  artifacts:
+  tagPolicy:
+    envTemplate:
+      template: '{{.IMAGE_NAME}}:latest'
+deploy:
+  kustomize: {}
