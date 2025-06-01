@@ -75,6 +75,12 @@ public class SecurityConfiguration {
             .requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
             .authorizeExchange(authz ->
                 authz
+                    .pathMatchers("/api/projects/paginated")
+                    .permitAll()
+                    .pathMatchers("/api/projects/popular")
+                    .permitAll()
+                    .pathMatchers("/api/engagement-projects/project/*")
+                    .permitAll()
                     .pathMatchers("/api/**")
                     .authenticated()
                     .pathMatchers("/api/authenticate")
