@@ -5,6 +5,7 @@ import com.senprojectbackend1.domain.criteria.NotificationCriteria;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
 import com.senprojectbackend1.repository.NotificationRepository;
 import com.senprojectbackend1.repository.UserProfileRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.NotificationService;
 import com.senprojectbackend1.service.dto.NotificationDTO;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -71,6 +73,7 @@ public class NotificationResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new notificationDTO, or with status {@code 400 (Bad Request)} if the notification has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<NotificationDTO>> createNotification(@Valid @RequestBody NotificationDTO notificationDTO)
         throws URISyntaxException {
@@ -101,6 +104,7 @@ public class NotificationResource {
      * or with status {@code 500 (Internal Server Error)} if the notificationDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<NotificationDTO>> updateNotification(
         @PathVariable(value = "id", required = false) final Long id,
@@ -143,6 +147,7 @@ public class NotificationResource {
      * or with status {@code 500 (Internal Server Error)} if the notificationDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<NotificationDTO>> partialUpdateNotification(
         @PathVariable(value = "id", required = false) final Long id,
@@ -183,6 +188,7 @@ public class NotificationResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of notifications in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<NotificationDTO>>> getAllNotifications(
         NotificationCriteria criteria,
@@ -211,6 +217,7 @@ public class NotificationResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countNotifications(NotificationCriteria criteria) {
         LOG.debug("REST request to count Notifications by criteria: {}", criteria);
@@ -223,6 +230,7 @@ public class NotificationResource {
      * @param id the id of the notificationDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the notificationDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<NotificationDTO>> getNotification(@PathVariable("id") Long id) {
         LOG.debug("REST request to get Notification : {}", id);
@@ -236,6 +244,7 @@ public class NotificationResource {
      * @param id the id of the notificationDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteNotification(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete Notification : {}", id);
@@ -307,7 +316,6 @@ public class NotificationResource {
                 userProfileRepository
                     .findOneByLogin(login)
                     .flatMap(user -> {
-                        // Ajouter le filtre sur l'ID de l'utilisateur
                         criteria.setUserId((StringFilter) new StringFilter().setEquals(user.getId()));
 
                         return notificationService
@@ -357,6 +365,7 @@ public class NotificationResource {
      * @param targetLogins array of user IDs or "all" for all users
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the created notifications
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("/notify")
     public Mono<ResponseEntity<List<Notification>>> createNotifications(
         @RequestParam String content,

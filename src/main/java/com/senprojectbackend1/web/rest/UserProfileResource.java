@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.UserProfileCriteria;
 import com.senprojectbackend1.repository.UserProfileRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.UserProfileDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -19,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
@@ -58,11 +60,10 @@ public class UserProfileResource {
      *
      * @param userProfileDTO the userProfileDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new userProfileDTO, or with status {@code 400 (Bad Request)} if the userProfile has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN })
     @PostMapping("")
-    public Mono<ResponseEntity<UserProfileDTO>> createUserProfile(@Valid @RequestBody UserProfileDTO userProfileDTO)
-        throws URISyntaxException {
+    public Mono<ResponseEntity<UserProfileDTO>> createUserProfile(@Valid @RequestBody UserProfileDTO userProfileDTO) {
         LOG.debug("REST request to save UserProfile : {}", userProfileDTO);
         if (userProfileDTO.getId() != null) {
             throw new BadRequestAlertException("A new userProfile cannot already have an ID", ENTITY_NAME, "idexists");
@@ -70,13 +71,15 @@ public class UserProfileResource {
         userProfileDTO.setId(String.valueOf(UUID.randomUUID()));
         return userProfileService
             .save(userProfileDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/user-profiles/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/user-profiles/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -112,6 +115,7 @@ public class UserProfileResource {
      * or with status {@code 500 (Internal Server Error)} if the userProfileDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<UserProfileDTO>> updateUserProfile(
         @PathVariable(value = "id", required = false) final String id,
@@ -128,7 +132,7 @@ public class UserProfileResource {
         return userProfileRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -152,13 +156,13 @@ public class UserProfileResource {
      * or with status {@code 400 (Bad Request)} if the userProfileDTO is not valid,
      * or with status {@code 404 (Not Found)} if the userProfileDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the userProfileDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<UserProfileDTO>> partialUpdateUserProfile(
         @PathVariable(value = "id", required = false) final String id,
         @NotNull @RequestBody UserProfileDTO userProfileDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to partial update UserProfile partially : {}, {}", id, userProfileDTO);
         if (userProfileDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -170,7 +174,7 @@ public class UserProfileResource {
         return userProfileRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -194,6 +198,7 @@ public class UserProfileResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of userProfiles in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<UserProfileDTO>>> getAllUserProfiles(
         UserProfileCriteria criteria,
@@ -222,6 +227,7 @@ public class UserProfileResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countUserProfiles(UserProfileCriteria criteria) {
         LOG.debug("REST request to count UserProfiles by criteria: {}", criteria);
@@ -234,6 +240,7 @@ public class UserProfileResource {
      * @param id the id of the userProfileDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the userProfileDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<UserProfileDTO>> getUserProfile(@PathVariable("id") String id) {
         LOG.debug("REST request to get UserProfile : {}", id);
@@ -247,6 +254,7 @@ public class UserProfileResource {
      * @param id the id of the userProfileDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteUserProfile(@PathVariable("id") String id) {
         LOG.debug("REST request to delete UserProfile : {}", id);
@@ -292,7 +300,6 @@ public class UserProfileResource {
 
     /**
      * PATCH /user-profiles/me : Permet à l'utilisateur courant de modifier certains champs de son profil.
-     *
      * @param updateDTO les champs à mettre à jour (JSON partiel)
      * @return le profil mis à jour
      */

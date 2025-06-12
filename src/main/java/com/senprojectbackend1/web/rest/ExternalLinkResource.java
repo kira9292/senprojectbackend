@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.ExternalLinkCriteria;
 import com.senprojectbackend1.repository.ExternalLinkRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.ExternalLinkService;
 import com.senprojectbackend1.service.dto.ExternalLinkDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -56,24 +58,25 @@ public class ExternalLinkResource {
      *
      * @param externalLinkDTO the externalLinkDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new externalLinkDTO, or with status {@code 400 (Bad Request)} if the externalLink has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
-    public Mono<ResponseEntity<ExternalLinkDTO>> createExternalLink(@Valid @RequestBody ExternalLinkDTO externalLinkDTO)
-        throws URISyntaxException {
+    public Mono<ResponseEntity<ExternalLinkDTO>> createExternalLink(@Valid @RequestBody ExternalLinkDTO externalLinkDTO) {
         LOG.debug("REST request to save ExternalLink : {}", externalLinkDTO);
         if (externalLinkDTO.getId() != null) {
             throw new BadRequestAlertException("A new externalLink cannot already have an ID", ENTITY_NAME, "idexists");
         }
         return externalLinkService
             .save(externalLinkDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/external-links/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/external-links/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -86,13 +89,13 @@ public class ExternalLinkResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated externalLinkDTO,
      * or with status {@code 400 (Bad Request)} if the externalLinkDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the externalLinkDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<ExternalLinkDTO>> updateExternalLink(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody ExternalLinkDTO externalLinkDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to update ExternalLink : {}, {}", id, externalLinkDTO);
         if (externalLinkDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -130,6 +133,7 @@ public class ExternalLinkResource {
      * or with status {@code 500 (Internal Server Error)} if the externalLinkDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ExternalLinkDTO>> partialUpdateExternalLink(
         @PathVariable(value = "id", required = false) final Long id,
@@ -170,6 +174,7 @@ public class ExternalLinkResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of externalLinks in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<ExternalLinkDTO>>> getAllExternalLinks(
         ExternalLinkCriteria criteria,
@@ -198,6 +203,7 @@ public class ExternalLinkResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countExternalLinks(ExternalLinkCriteria criteria) {
         LOG.debug("REST request to count ExternalLinks by criteria: {}", criteria);
@@ -210,6 +216,7 @@ public class ExternalLinkResource {
      * @param id the id of the externalLinkDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the externalLinkDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<ExternalLinkDTO>> getExternalLink(@PathVariable("id") Long id) {
         LOG.debug("REST request to get ExternalLink : {}", id);
@@ -223,6 +230,7 @@ public class ExternalLinkResource {
      * @param id the id of the externalLinkDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteExternalLink(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete ExternalLink : {}", id);

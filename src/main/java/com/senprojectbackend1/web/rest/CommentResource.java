@@ -3,6 +3,7 @@ package com.senprojectbackend1.web.rest;
 import com.senprojectbackend1.domain.Comment;
 import com.senprojectbackend1.domain.criteria.CommentCriteria;
 import com.senprojectbackend1.repository.CommentRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.CommentService;
 import com.senprojectbackend1.service.dto.CommentDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -21,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -61,6 +63,7 @@ public class CommentResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new commentDTO, or with status {@code 400 (Bad Request)} if the comment has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<CommentDTO>> createComment(@Valid @RequestBody CommentDTO commentDTO) throws URISyntaxException {
         LOG.debug("REST request to save Comment : {}", commentDTO);
@@ -90,6 +93,7 @@ public class CommentResource {
      * or with status {@code 500 (Internal Server Error)} if the commentDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<CommentDTO>> updateComment(
         @PathVariable(value = "id", required = false) final Long id,
@@ -132,6 +136,7 @@ public class CommentResource {
      * or with status {@code 500 (Internal Server Error)} if the commentDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<CommentDTO>> partialUpdateComment(
         @PathVariable(value = "id", required = false) final Long id,
@@ -172,6 +177,7 @@ public class CommentResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of comments in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<CommentDTO>>> getAllComments(
         CommentCriteria criteria,
@@ -200,6 +206,7 @@ public class CommentResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countComments(CommentCriteria criteria) {
         LOG.debug("REST request to count Comments by criteria: {}", criteria);
@@ -212,6 +219,7 @@ public class CommentResource {
      * @param id the id of the commentDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the commentDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<CommentDTO>> getComment(@PathVariable("id") Long id) {
         LOG.debug("REST request to get Comment : {}", id);
@@ -225,6 +233,7 @@ public class CommentResource {
      * @param id the id of the commentDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteComment(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete Comment : {}", id);

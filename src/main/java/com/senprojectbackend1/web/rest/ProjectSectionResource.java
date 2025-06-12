@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.ProjectSectionCriteria;
 import com.senprojectbackend1.repository.ProjectSectionRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.ProjectSectionService;
 import com.senprojectbackend1.service.dto.ProjectSectionDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -57,6 +59,7 @@ public class ProjectSectionResource {
      * @param projectSectionDTO the projectSectionDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectSectionDTO, or with status {@code 400 (Bad Request)} if the projectSection has already an ID.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<ProjectSectionDTO>> createProjectSection(@Valid @RequestBody ProjectSectionDTO projectSectionDTO) {
         LOG.debug("REST request to save ProjectSection : {}", projectSectionDTO);
@@ -87,6 +90,7 @@ public class ProjectSectionResource {
      * or with status {@code 400 (Bad Request)} if the projectSectionDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the projectSectionDTO couldn't be updated.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<ProjectSectionDTO>> updateProjectSection(
         @PathVariable(value = "id", required = false) final Long id,
@@ -128,6 +132,7 @@ public class ProjectSectionResource {
      * or with status {@code 404 (Not Found)} if the projectSectionDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the projectSectionDTO couldn't be updated.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ProjectSectionDTO>> partialUpdateProjectSection(
         @PathVariable(value = "id", required = false) final Long id,
@@ -168,6 +173,7 @@ public class ProjectSectionResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of projectSections in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<ProjectSectionDTO>>> getAllProjectSections(
         ProjectSectionCriteria criteria,
@@ -196,6 +202,7 @@ public class ProjectSectionResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countProjectSections(ProjectSectionCriteria criteria) {
         LOG.debug("REST request to count ProjectSections by criteria: {}", criteria);
@@ -208,6 +215,7 @@ public class ProjectSectionResource {
      * @param id the id of the projectSectionDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the projectSectionDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<ProjectSectionDTO>> getProjectSection(@PathVariable("id") Long id) {
         LOG.debug("REST request to get ProjectSection : {}", id);
@@ -221,6 +229,7 @@ public class ProjectSectionResource {
      * @param id the id of the projectSectionDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteProjectSection(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete ProjectSection : {}", id);

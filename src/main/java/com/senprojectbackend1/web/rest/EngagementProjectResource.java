@@ -1,20 +1,15 @@
 package com.senprojectbackend1.web.rest;
 
-import com.senprojectbackend1.domain.EngagementProject;
 import com.senprojectbackend1.domain.criteria.EngagementProjectCriteria;
-import com.senprojectbackend1.domain.enumeration.EngagementType;
 import com.senprojectbackend1.repository.EngagementProjectRepository;
-import com.senprojectbackend1.repository.ProjectRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.EngagementProjectService;
-import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.EngagementProjectDTO;
-import com.senprojectbackend1.service.mapper.EngagementProjectMapper;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import org.slf4j.Logger;
@@ -26,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -51,22 +47,13 @@ public class EngagementProjectResource {
 
     private final EngagementProjectService engagementProjectService;
     private final EngagementProjectRepository engagementProjectRepository;
-    private final UserProfileService userProfileService;
-    private final ProjectRepository projectRepository;
-    private final EngagementProjectMapper engagementProjectMapper;
 
     public EngagementProjectResource(
         EngagementProjectService engagementProjectService,
-        EngagementProjectRepository engagementProjectRepository,
-        UserProfileService userProfileService,
-        ProjectRepository projectRepository,
-        EngagementProjectMapper engagementProjectMapper
+        EngagementProjectRepository engagementProjectRepository
     ) {
         this.engagementProjectService = engagementProjectService;
         this.engagementProjectRepository = engagementProjectRepository;
-        this.userProfileService = userProfileService;
-        this.projectRepository = projectRepository;
-        this.engagementProjectMapper = engagementProjectMapper;
     }
 
     /**
@@ -76,6 +63,7 @@ public class EngagementProjectResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new engagementProjectDTO, or with status {@code 400 (Bad Request)} if the engagementProject has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<EngagementProjectDTO>> createEngagementProject(
         @Valid @RequestBody EngagementProjectDTO engagementProjectDTO
@@ -86,13 +74,15 @@ public class EngagementProjectResource {
         }
         return engagementProjectService
             .save(engagementProjectDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/engagement-projects/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/engagement-projects/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -107,6 +97,7 @@ public class EngagementProjectResource {
      * or with status {@code 500 (Internal Server Error)} if the engagementProjectDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<EngagementProjectDTO>> updateEngagementProject(
         @PathVariable(value = "id", required = false) final Long id,
@@ -149,6 +140,7 @@ public class EngagementProjectResource {
      * or with status {@code 500 (Internal Server Error)} if the engagementProjectDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<EngagementProjectDTO>> partialUpdateEngagementProject(
         @PathVariable(value = "id", required = false) final Long id,
@@ -189,6 +181,7 @@ public class EngagementProjectResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of engagementProjects in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<EngagementProjectDTO>>> getAllEngagementProjects(
         EngagementProjectCriteria criteria,
@@ -217,6 +210,7 @@ public class EngagementProjectResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countEngagementProjects(EngagementProjectCriteria criteria) {
         LOG.debug("REST request to count EngagementProjects by criteria: {}", criteria);
@@ -229,6 +223,7 @@ public class EngagementProjectResource {
      * @param id the id of the engagementProjectDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the engagementProjectDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<EngagementProjectDTO>> getEngagementProject(@PathVariable("id") Long id) {
         LOG.debug("REST request to get EngagementProject : {}", id);
@@ -242,6 +237,7 @@ public class EngagementProjectResource {
      * @param id the id of the engagementProjectDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteEngagementProject(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete EngagementProject : {}", id);

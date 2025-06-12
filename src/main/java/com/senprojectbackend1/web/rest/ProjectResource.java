@@ -3,6 +3,7 @@ package com.senprojectbackend1.web.rest;
 import com.senprojectbackend1.domain.criteria.ProjectCriteria;
 import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.ProjectRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.security.SecurityUtils;
 import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
@@ -26,6 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
@@ -66,6 +68,7 @@ public class ProjectResource {
      * @param projectDTO the projectDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectDTO, or with status {@code 400 (Bad Request)} if the project has already an ID.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<ProjectDTO>> createProject(@Valid @RequestBody ProjectDTO projectDTO) {
         LOG.debug("REST request to save Project : {}", projectDTO);
@@ -96,6 +99,7 @@ public class ProjectResource {
      * or with status {@code 400 (Bad Request)} if the projectDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the projectDTO couldn't be updated.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<Void>> updateProject(@PathVariable Long id, @RequestBody ProjectDTO projectDTO) {
         LOG.debug("REST request to update Project : {}", projectDTO);
@@ -112,6 +116,7 @@ public class ProjectResource {
      * or with status {@code 404 (Not Found)} if the projectDTO is not found,
      * or with status {@code 500 (Internal Server Error)} if the projectDTO couldn't be updated.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ProjectDTO>> partialUpdateProject(
         @PathVariable(value = "id", required = false) final Long id,
@@ -152,6 +157,7 @@ public class ProjectResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of projects in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<ProjectDTO>>> getAllProjects(
         ProjectCriteria criteria,
@@ -187,8 +193,6 @@ public class ProjectResource {
         ServerHttpRequest request
     ) {
         LOG.debug("REST request to get Simple Projects of the current user");
-
-        // Récupérer le login de l'utilisateur connecté
         return ReactiveSecurityContextHolder.getContext()
             .map(securityContext -> securityContext.getAuthentication().getName())
             .flatMap(login -> {
@@ -197,7 +201,6 @@ public class ProjectResource {
                 return projectsFlux
                     .collectList()
                     .map(allProjects -> {
-                        // Pagination manuelle
                         int start = (int) pageable.getOffset();
                         int end = Math.min((start + pageable.getPageSize()), allProjects.size());
                         List<ProjectSimpleDTO> pageContent = allProjects.subList(start, end);
@@ -221,6 +224,7 @@ public class ProjectResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countProjects(ProjectCriteria criteria) {
         LOG.debug("REST request to count Projects by criteria: {}", criteria);
@@ -453,11 +457,6 @@ public class ProjectResource {
                 new BadRequestAlertException("Le titre du projet doit contenir au moins 3 caractères", ENTITY_NAME, "titleinvalid")
             );
         }
-
-        // La vérification de l'existence du projet, des droits et du changement d'équipe
-        // sera gérée dans le service (méthode createOrUpdateProject).
-        // Le service lèvera les BadRequestAlertException appropriées.
-
         return SecurityUtils.getCurrentUserLogin()
             .switchIfEmpty(
                 Mono.error(new BadRequestAlertException("[ERREUR 1] Utilisateur courant non trouvé", ENTITY_NAME, "usernotfound"))
@@ -495,8 +494,6 @@ public class ProjectResource {
             totalMono = projectService.countByCriteria(criteria);
             flux = projectService.findByCriteria(criteria, pageable);
         } else {
-            // Existing logic for filtering by category - potentially less efficient
-            // We keep it for now but note that filtering by tag in criteria might be better
             totalMono = projectService.countProjectsByCategories(categories);
             flux = projectService.getPaginatedProjects(pageable, categories); // This service method still needs the filtering logic inside for the category case
         }

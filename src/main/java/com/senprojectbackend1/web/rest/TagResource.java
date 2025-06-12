@@ -3,6 +3,7 @@ package com.senprojectbackend1.web.rest;
 import com.senprojectbackend1.domain.Tag;
 import com.senprojectbackend1.domain.criteria.TagCriteria;
 import com.senprojectbackend1.repository.TagRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.TagService;
 import com.senprojectbackend1.service.dto.PageDTO;
 import com.senprojectbackend1.service.dto.TagDTO;
@@ -23,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -61,6 +63,7 @@ public class TagResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new tagDTO, or with status {@code 400 (Bad Request)} if the tag has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("/tags")
     public Mono<ResponseEntity<TagDTO>> createTag(@Valid @RequestBody TagDTO tagDTO) throws URISyntaxException {
         LOG.debug("REST request to save Tag : {}", tagDTO);
@@ -91,6 +94,7 @@ public class TagResource {
      * or with status {@code 400 (Bad Request)} if the tagDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the tagDTO couldn't be updated.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/tags/{id}")
     public Mono<ResponseEntity<TagDTO>> updateTag(
         @PathVariable(value = "id", required = false) final Long id,
@@ -133,6 +137,7 @@ public class TagResource {
      * or with status {@code 500 (Internal Server Error)} if the tagDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/tags/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<TagDTO>> partialUpdateTag(
         @PathVariable(value = "id", required = false) final Long id,
@@ -173,6 +178,7 @@ public class TagResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<TagDTO>>> getAllTags(
         TagCriteria criteria,
@@ -201,6 +207,7 @@ public class TagResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/tags/count")
     public Mono<ResponseEntity<Long>> countTags(TagCriteria criteria) {
         LOG.debug("REST request to count Tags by criteria: {}", criteria);
@@ -213,6 +220,7 @@ public class TagResource {
      * @param id the id of the tagDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the tagDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/tags/{id}")
     public Mono<ResponseEntity<TagDTO>> getTag(@PathVariable("id") Long id) {
         LOG.debug("REST request to get Tag : {}", id);
@@ -226,6 +234,7 @@ public class TagResource {
      * @param id the id of the tagDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/tags/{id}")
     public Mono<ResponseEntity<Void>> deleteTag(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete Tag : {}", id);

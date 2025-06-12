@@ -14,7 +14,9 @@ import io.r2dbc.spi.Row;
 import io.r2dbc.spi.RowMetadata;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.r2dbc.convert.R2dbcConverter;
 import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -28,6 +30,7 @@ import org.springframework.data.relational.core.sql.Expression;
 import org.springframework.data.relational.core.sql.Select;
 import org.springframework.data.relational.core.sql.SelectBuilder.SelectFromAndJoinCondition;
 import org.springframework.data.relational.core.sql.Table;
+import org.springframework.data.relational.core.sql.render.SqlRenderer;
 import org.springframework.data.relational.repository.support.MappingRelationalEntityInformation;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.r2dbc.core.RowsFetchSpec;
@@ -176,25 +179,10 @@ class ProjectRepositoryInternalImpl extends SimpleR2dbcRepository<Project, Long>
                 builder.buildFilterConditionForField(criteria.getId(), entityTable.column("id"));
             }
             if (criteria.getTitle() != null) {
-                if (criteria.getTitle().getContains() != null) {
-                    allConditions.add(
-                        Conditions.like(entityTable.column("title"), Conditions.just("'%" + criteria.getTitle().getContains() + "%'"))
-                    );
-                } else {
-                    builder.buildFilterConditionForField(criteria.getTitle(), entityTable.column("title"));
-                }
+                builder.buildFilterConditionForField(criteria.getTitle(), entityTable.column("title"));
             }
             if (criteria.getDescription() != null) {
-                if (criteria.getDescription().getContains() != null) {
-                    allConditions.add(
-                        Conditions.like(
-                            entityTable.column("description"),
-                            Conditions.just("'%" + criteria.getDescription().getContains() + "%'")
-                        )
-                    );
-                } else {
-                    builder.buildFilterConditionForField(criteria.getDescription(), entityTable.column("description"));
-                }
+                builder.buildFilterConditionForField(criteria.getDescription(), entityTable.column("description"));
             }
             if (criteria.getShowcase() != null) {
                 builder.buildFilterConditionForField(criteria.getShowcase(), entityTable.column("showcase"));
@@ -209,37 +197,13 @@ class ProjectRepositoryInternalImpl extends SimpleR2dbcRepository<Project, Long>
                 builder.buildFilterConditionForField(criteria.getUpdatedAt(), entityTable.column("updated_at"));
             }
             if (criteria.getGithubUrl() != null) {
-                if (criteria.getGithubUrl().getContains() != null) {
-                    allConditions.add(
-                        Conditions.like(
-                            entityTable.column("github_url"),
-                            Conditions.just("'%" + criteria.getGithubUrl().getContains() + "%'")
-                        )
-                    );
-                } else {
-                    builder.buildFilterConditionForField(criteria.getGithubUrl(), entityTable.column("github_url"));
-                }
+                builder.buildFilterConditionForField(criteria.getGithubUrl(), entityTable.column("github_url"));
             }
             if (criteria.getWebsiteUrl() != null) {
-                if (criteria.getWebsiteUrl().getContains() != null) {
-                    allConditions.add(
-                        Conditions.like(
-                            entityTable.column("website_url"),
-                            Conditions.just("'%" + criteria.getWebsiteUrl().getContains() + "%'")
-                        )
-                    );
-                } else {
-                    builder.buildFilterConditionForField(criteria.getWebsiteUrl(), entityTable.column("website_url"));
-                }
+                builder.buildFilterConditionForField(criteria.getWebsiteUrl(), entityTable.column("website_url"));
             }
             if (criteria.getDemoUrl() != null) {
-                if (criteria.getDemoUrl().getContains() != null) {
-                    allConditions.add(
-                        Conditions.like(entityTable.column("demo_url"), Conditions.just("'%" + criteria.getDemoUrl().getContains() + "%'"))
-                    );
-                } else {
-                    builder.buildFilterConditionForField(criteria.getDemoUrl(), entityTable.column("demo_url"));
-                }
+                builder.buildFilterConditionForField(criteria.getDemoUrl(), entityTable.column("demo_url"));
             }
             if (criteria.getOpenToCollaboration() != null) {
                 builder.buildFilterConditionForField(criteria.getOpenToCollaboration(), entityTable.column("open_to_collaboration"));
@@ -279,12 +243,6 @@ class ProjectRepositoryInternalImpl extends SimpleR2dbcRepository<Project, Long>
             }
         }
         Condition builderCondition = builder.buildConditions();
-        if (!allConditions.isEmpty()) {
-            if (builderCondition != null) {
-                allConditions.add(builderCondition);
-            }
-            return allConditions.stream().reduce(Condition::and).orElse(null);
-        }
         return builderCondition;
     }
 }

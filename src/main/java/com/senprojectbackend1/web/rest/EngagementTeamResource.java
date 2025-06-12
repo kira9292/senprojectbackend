@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.EngagementTeamCriteria;
 import com.senprojectbackend1.repository.EngagementTeamRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.EngagementTeamService;
 import com.senprojectbackend1.service.dto.EngagementTeamDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -56,24 +58,25 @@ public class EngagementTeamResource {
      *
      * @param engagementTeamDTO the engagementTeamDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new engagementTeamDTO, or with status {@code 400 (Bad Request)} if the engagementTeam has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
-    public Mono<ResponseEntity<EngagementTeamDTO>> createEngagementTeam(@Valid @RequestBody EngagementTeamDTO engagementTeamDTO)
-        throws URISyntaxException {
+    public Mono<ResponseEntity<EngagementTeamDTO>> createEngagementTeam(@Valid @RequestBody EngagementTeamDTO engagementTeamDTO) {
         LOG.debug("REST request to save EngagementTeam : {}", engagementTeamDTO);
         if (engagementTeamDTO.getId() != null) {
             throw new BadRequestAlertException("A new engagementTeam cannot already have an ID", ENTITY_NAME, "idexists");
         }
         return engagementTeamService
             .save(engagementTeamDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/engagement-teams/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/engagement-teams/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -86,13 +89,13 @@ public class EngagementTeamResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the updated engagementTeamDTO,
      * or with status {@code 400 (Bad Request)} if the engagementTeamDTO is not valid,
      * or with status {@code 500 (Internal Server Error)} if the engagementTeamDTO couldn't be updated.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<EngagementTeamDTO>> updateEngagementTeam(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody EngagementTeamDTO engagementTeamDTO
-    ) throws URISyntaxException {
+    ) {
         LOG.debug("REST request to update EngagementTeam : {}, {}", id, engagementTeamDTO);
         if (engagementTeamDTO.getId() == null) {
             throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
@@ -130,6 +133,7 @@ public class EngagementTeamResource {
      * or with status {@code 500 (Internal Server Error)} if the engagementTeamDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<EngagementTeamDTO>> partialUpdateEngagementTeam(
         @PathVariable(value = "id", required = false) final Long id,
@@ -170,6 +174,7 @@ public class EngagementTeamResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of engagementTeams in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<EngagementTeamDTO>>> getAllEngagementTeams(
         EngagementTeamCriteria criteria,
@@ -198,6 +203,7 @@ public class EngagementTeamResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countEngagementTeams(EngagementTeamCriteria criteria) {
         LOG.debug("REST request to count EngagementTeams by criteria: {}", criteria);
@@ -210,6 +216,7 @@ public class EngagementTeamResource {
      * @param id the id of the engagementTeamDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the engagementTeamDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<EngagementTeamDTO>> getEngagementTeam(@PathVariable("id") Long id) {
         LOG.debug("REST request to get EngagementTeam : {}", id);
@@ -223,6 +230,7 @@ public class EngagementTeamResource {
      * @param id the id of the engagementTeamDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteEngagementTeam(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete EngagementTeam : {}", id);

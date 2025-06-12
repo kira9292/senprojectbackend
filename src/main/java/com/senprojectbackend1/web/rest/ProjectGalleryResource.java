@@ -3,6 +3,7 @@ package com.senprojectbackend1.web.rest;
 import com.senprojectbackend1.domain.ProjectGallery;
 import com.senprojectbackend1.domain.criteria.ProjectGalleryCriteria;
 import com.senprojectbackend1.repository.ProjectGalleryRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.ProjectGalleryService;
 import com.senprojectbackend1.service.dto.ProjectGalleryDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
@@ -21,6 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ForwardedHeaderUtils;
@@ -57,24 +59,25 @@ public class ProjectGalleryResource {
      *
      * @param projectGalleryDTO the projectGalleryDTO to create.
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new projectGalleryDTO, or with status {@code 400 (Bad Request)} if the projectGallery has already an ID.
-     * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
-    public Mono<ResponseEntity<ProjectGalleryDTO>> createProjectGallery(@Valid @RequestBody ProjectGalleryDTO projectGalleryDTO)
-        throws URISyntaxException {
+    public Mono<ResponseEntity<ProjectGalleryDTO>> createProjectGallery(@Valid @RequestBody ProjectGalleryDTO projectGalleryDTO) {
         LOG.debug("REST request to save ProjectGallery : {}", projectGalleryDTO);
         if (projectGalleryDTO.getId() != null) {
             throw new BadRequestAlertException("A new projectGallery cannot already have an ID", ENTITY_NAME, "idexists");
         }
         return projectGalleryService
             .save(projectGalleryDTO)
-            .map(result -> {
+            .handle((result, sink) -> {
                 try {
-                    return ResponseEntity.created(new URI("/api/project-galleries/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
+                    sink.next(
+                        ResponseEntity.created(new URI("/api/project-galleries/" + result.getId()))
+                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                            .body(result)
+                    );
                 } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
+                    sink.error(new RuntimeException(e));
                 }
             });
     }
@@ -89,6 +92,7 @@ public class ProjectGalleryResource {
      * or with status {@code 500 (Internal Server Error)} if the projectGalleryDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PutMapping("/{id}")
     public Mono<ResponseEntity<ProjectGalleryDTO>> updateProjectGallery(
         @PathVariable(value = "id", required = false) final Long id,
@@ -131,6 +135,7 @@ public class ProjectGalleryResource {
      * or with status {@code 500 (Internal Server Error)} if the projectGalleryDTO couldn't be updated.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
     public Mono<ResponseEntity<ProjectGalleryDTO>> partialUpdateProjectGallery(
         @PathVariable(value = "id", required = false) final Long id,
@@ -171,6 +176,7 @@ public class ProjectGalleryResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of projectGalleries in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<ProjectGalleryDTO>>> getAllProjectGalleries(
         ProjectGalleryCriteria criteria,
@@ -199,6 +205,7 @@ public class ProjectGalleryResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/count")
     public Mono<ResponseEntity<Long>> countProjectGalleries(ProjectGalleryCriteria criteria) {
         LOG.debug("REST request to count ProjectGalleries by criteria: {}", criteria);
@@ -211,6 +218,7 @@ public class ProjectGalleryResource {
      * @param id the id of the projectGalleryDTO to retrieve.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the projectGalleryDTO, or with status {@code 404 (Not Found)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<ProjectGalleryDTO>> getProjectGallery(@PathVariable("id") Long id) {
         LOG.debug("REST request to get ProjectGallery : {}", id);
@@ -224,6 +232,7 @@ public class ProjectGalleryResource {
      * @param id the id of the projectGalleryDTO to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> deleteProjectGallery(@PathVariable("id") Long id) {
         LOG.debug("REST request to delete ProjectGallery : {}", id);
