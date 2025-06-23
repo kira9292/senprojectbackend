@@ -928,4 +928,25 @@ public class ProjectServiceImpl implements ProjectService {
             .filter(p -> p.getStatus() != null && p.getStatus().name().equals("PUBLISHED") && Boolean.FALSE.equals(p.getIsDeleted()))
             .count();
     }
+
+    @Override
+    public Mono<Boolean> checkProjectTitleExists(String title, Long editProjectId) {
+        if (title == null || title.trim().isEmpty()) {
+            return Mono.error(new ProjectBusinessException("Le titre ne peut pas être vide", "project", "titleempty"));
+        }
+
+        if (editProjectId != null) {
+            return projectRepository
+                .findById(editProjectId)
+                .switchIfEmpty(Mono.error(new ProjectBusinessException("Projet à éditer non trouvé", "project", "notfound")))
+                .flatMap(existingProject -> {
+                    if (existingProject.getTitle().equalsIgnoreCase(title.trim())) {
+                        return Mono.just(false); // Même titre que l'existant
+                    }
+                    return projectRepository.existsByTitleAndIdNot(title.trim(), editProjectId);
+                });
+        }
+
+        return projectRepository.existsByTitle(title.trim());
+    }
 }

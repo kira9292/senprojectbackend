@@ -9,6 +9,7 @@ import com.senprojectbackend1.service.ProjectService;
 import com.senprojectbackend1.service.dto.ProjectDTO;
 import com.senprojectbackend1.service.dto.ProjectSimpleDTO;
 import com.senprojectbackend1.service.dto.ProjectSubmissionDTO;
+import com.senprojectbackend1.service.exception.ProjectBusinessException;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -521,5 +522,26 @@ public class ProjectResource {
             headers.add("X-Total-Count", String.valueOf(total));
             return ResponseEntity.ok().headers(headers).body(flux);
         });
+    }
+
+    /**
+     * {@code GET /projects/check-title} : Vérifie si un titre de projet existe déjà.
+     *
+     * @param title le titre à vérifier
+     * @param edit l'ID du projet en cours d'édition (optionnel)
+     * @return {@code true} si le titre existe déjà, {@code false} sinon
+     */
+    @GetMapping("/check-title")
+    public Mono<ResponseEntity<Boolean>> checkProjectTitle(@RequestParam String title, @RequestParam(required = false) Long edit) {
+        LOG.debug("REST request to check if Project title exists : {}, edit: {}", title, edit);
+        return projectService
+            .checkProjectTitleExists(title, edit)
+            .map(ResponseEntity::ok)
+            .onErrorResume(e -> {
+                if (e instanceof ProjectBusinessException) {
+                    return Mono.just(ResponseEntity.badRequest().body(false));
+                }
+                return Mono.just(ResponseEntity.internalServerError().body(false));
+            });
     }
 }

@@ -271,11 +271,20 @@ public class UserProfileResource {
     public Mono<ResponseEntity<UserProfileDTO>> getCurrentUserProfile() {
         LOG.debug("REST request to get current user's complete profile");
         return ReactiveSecurityContextHolder.getContext()
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated")))
             .map(SecurityContext::getAuthentication)
-            .map(Authentication::getName) // Utiliser getName() qui retourne généralement le username/login
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication not found")))
+            .map(Authentication::getName)
+            .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User login not found")))
             .flatMap(this::getUserProfileByLogin)
             .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+            .onErrorResume(IllegalArgumentException.class, e -> Mono.just(ResponseEntity.badRequest().build()))
+            .onErrorResume(IllegalStateException.class, e -> Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).build()))
+            .onErrorResume(ResponseStatusException.class, e -> Mono.just(ResponseEntity.status(e.getStatusCode()).build()))
+            .onErrorResume(Exception.class, e -> {
+                LOG.error("Error getting current user profile", e);
+                return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build());
+            });
     }
 
     /**

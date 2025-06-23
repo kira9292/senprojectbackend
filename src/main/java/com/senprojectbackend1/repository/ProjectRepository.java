@@ -180,6 +180,12 @@ public interface ProjectRepository extends ReactiveCrudRepository<Project, Long>
         "WHERE t.name = :tagName"
     )
     Mono<Long> countByTagName(@Param("tagName") String tagName);
+
+    @Query("SELECT COUNT(*) > 0 FROM project WHERE LOWER(title) = LOWER(:title) AND id != :excludeId")
+    Mono<Boolean> existsByTitleAndIdNot(@Param("title") String title, @Param("excludeId") Long excludeId);
+
+    @Query("SELECT COUNT(*) > 0 FROM project WHERE LOWER(title) = LOWER(:title)")
+    Mono<Boolean> existsByTitle(@Param("title") String title);
 }
 
 interface ProjectRepositoryInternal {

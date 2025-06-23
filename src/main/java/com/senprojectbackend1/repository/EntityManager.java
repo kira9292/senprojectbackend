@@ -176,22 +176,18 @@ public class EntityManager {
     public Mono<Long> updateLinkTable(LinkTable table, Object entityId, Stream<?> referencedIds) {
         return deleteFromLinkTable(table, entityId).then(
             Flux.fromStream(referencedIds)
-                .flatMap(referencedId -> {
+                .<Long>flatMap(referenceId -> {
                     StatementMapper.InsertSpec insert = r2dbcEntityTemplate
                         .getDataAccessStrategy()
                         .getStatementMapper()
                         .createInsert(table.tableName)
                         .withColumn(table.idColumn, Parameter.from(entityId))
-                        .withColumn(table.referenceColumn, Parameter.from(referencedId));
+                        .withColumn(table.referenceColumn, Parameter.from(referenceId));
 
-                    return r2dbcEntityTemplate
-                        .getDatabaseClient()
-                        .sql(statementMapper.getMappedObject(insert))
-                        .fetch()
-                        .rowsUpdated()
-                        .cast(Long.class);
+                    return r2dbcEntityTemplate.getDatabaseClient().sql(statementMapper.getMappedObject(insert)).fetch().rowsUpdated();
                 })
-                .reduce(0L, Long::sum)
+                .collectList()
+                .map(updates -> updates.stream().reduce(Long::sum).orElse(0L))
         );
     }
 

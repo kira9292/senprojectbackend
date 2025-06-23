@@ -280,9 +280,13 @@ public class UserProfileServiceImpl implements UserProfileService {
         LOG.debug("Request to get current user's complete profile");
 
         return ReactiveSecurityContextHolder.getContext()
+            .switchIfEmpty(Mono.error(new IllegalStateException("Security context is empty")))
             .map(SecurityContext::getAuthentication)
+            .switchIfEmpty(Mono.error(new IllegalStateException("Authentication is null")))
             .map(Authentication::getName)
-            .flatMap(this::getUserProfileCompleteByLogin);
+            .switchIfEmpty(Mono.error(new IllegalStateException("User login is null")))
+            .flatMap(this::getUserProfileCompleteByLogin)
+            .switchIfEmpty(Mono.error(new IllegalStateException("User profile not found")));
     }
 
     /**
@@ -292,7 +296,13 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Transactional(readOnly = true)
     public Mono<UserProfileDTO> getUserProfileCompleteByLogin(String login) {
         LOG.debug("Request to get complete profile for login: {}", login);
-        return userProfileRepository.findOneByLogin(login).flatMap(this::buildCompleteUserProfileDTO);
+        if (login == null || login.trim().isEmpty()) {
+            return Mono.error(new IllegalArgumentException("Login cannot be null or empty"));
+        }
+        return userProfileRepository
+            .findOneByLogin(login)
+            .switchIfEmpty(Mono.error(new IllegalStateException("User profile not found for login: " + login)))
+            .flatMap(this::buildCompleteUserProfileDTO);
     }
 
     @Override
@@ -310,6 +320,12 @@ public class UserProfileServiceImpl implements UserProfileService {
 
         // Mapper le profil utilisateur de base
         userProfileMapper.userProfileToUserProfileDTO(userProfile, dto);
+
+        // Check if id is null
+        if (userProfile.getId() == null) {
+            LOG.error("User profile id is null for login: {}", userProfile.getLogin());
+            return Mono.error(new IllegalStateException("User profile id cannot be null"));
+        }
 
         // 1. Récupérer les équipes de l'utilisateur
         Mono<Set<TeamSimpleDTO>> teamsMono = getTeamsForUser(userProfile.getId());
@@ -336,6 +352,12 @@ public class UserProfileServiceImpl implements UserProfileService {
 
         // Mapper le profil utilisateur de base
         userProfileMapper.userProfileToUserProfileSimpleDTO(userProfile, dto);
+
+        // Check if id is null
+        if (userProfile.getId() == null) {
+            LOG.error("User profile id is null for login: {}", userProfile.getLogin());
+            return Mono.error(new IllegalStateException("User profile id cannot be null"));
+        }
 
         // 1. Récupérer les équipes de l'utilisateur
         Mono<Set<TeamSimpleDTO>> teamsMono = getTeamsForUser(userProfile.getId());

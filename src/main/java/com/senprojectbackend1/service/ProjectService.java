@@ -243,4 +243,13 @@ public interface ProjectService {
      * Retourne le nombre total de projets populaires (PUBLISHED et non supprimés).
      */
     Mono<Long> countPopularProjects();
+
+    /**
+     * Vérifie si un titre de projet existe déjà.
+     *
+     * @param title le titre à vérifier
+     * @param editProjectId l'ID du projet en cours d'édition (optionnel)
+     * @return true si le titre existe déjà, false sinon
+     */
+    Mono<Boolean> checkProjectTitleExists(String title, Long editProjectId);
 }
