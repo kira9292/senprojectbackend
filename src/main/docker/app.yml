@@ -1,6 +1,22 @@
 # This configuration is intended for development purpose, it's **your** responsibility to harden it for production
 name: senprojectbackend1
 services:
+  keycloak-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak_user
+      - POSTGRES_PASSWORD=keycloak_password_prod_2024
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - keycloak-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U keycloak_user -d keycloak" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   app:
     image: mouhacisse007/senprojectbackend1:v1
     environment:
@@ -83,3 +99,5 @@ services:
     extends:
       file: ./kafka.yml
       service: kafka
+
+
