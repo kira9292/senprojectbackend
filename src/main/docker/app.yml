@@ -1,22 +1,6 @@
 # This configuration is intended for development purpose, it's **your** responsibility to harden it for production
 name: senprojectbackend1
 services:
-  keycloak-db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=keycloak
-      - POSTGRES_USER=keycloak_user
-      - POSTGRES_PASSWORD=keycloak_password_prod_2024
-    volumes:
-      - keycloak-db-data:/var/lib/postgresql/data
-    networks:
-      - keycloak-network
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U keycloak_user -d keycloak" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
   app:
     image: mouhacisse007/senprojectbackend1:v1
     environment:
@@ -50,7 +34,7 @@ services:
       jhipster-registry:
         condition: service_healthy
   senprojectgateway:
-    image: mouhacisse007/senprojectgateway1:v1
+    image: mouhacisse007/senprojectgateway1:v2
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
@@ -85,9 +69,64 @@ services:
       file: ./postgresql.yml
       service: postgresql
   keycloak:
-    extends:
-      file: ./keycloak.yml
-      service: keycloak
+    image: quay.io/keycloak/keycloak:26.2.3
+    command: 'start --import-realm'
+    volumes:
+      - ./realm-config:/opt/keycloak/data/import
+      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
+      - ./realm-config/keycloak-theme-sen-project.jar:/opt/keycloak/providers/keycloak-theme-sen-project.jar
+    env_file:
+      - ../../../.env
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak_user
+      - KC_DB_PASSWORD=keycloak_password_prod_2024
+      - KC_HOSTNAME_STRICT=false
+      - KC_HTTP_ENABLED=true
+      - KC_HTTP_PORT=9080
+      - KC_HTTPS_PORT=9443
+      - KC_PROXY=edge
+      - KC_HEALTH_ENABLED=true
+      - KC_HTTP_MANAGEMENT_PORT=9990
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin_prod_2024
+      - KC_CACHE=ispn
+      - KC_LOG_LEVEL=INFO
+    ports:
+      - "9080:9080"
+      - "9443:9443"
+    healthcheck:
+      test: ["CMD-SHELL", "bash /opt/keycloak/health-check.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    networks:
+      - keycloak-network
+    labels:
+      org.springframework.boot.ignore: true
+
+  keycloak-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak_user
+      - POSTGRES_PASSWORD=keycloak_password_prod_2024
+    volumes:
+      - keycloak-db-data:/var/lib/postgresql/data
+    networks:
+      - keycloak-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   jhipster-registry:
     extends:
       file: ./jhipster-registry.yml
@@ -99,5 +138,9 @@ services:
     extends:
       file: ./kafka.yml
       service: kafka
-
-
+networks:
+  keycloak-network:
+    driver: bridge
+volumes:
+  keycloak-db-data:
+    driver: local
