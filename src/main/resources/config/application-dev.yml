@@ -47,7 +47,7 @@ eureka:
     prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://admin:${jhipster.registry.password}@localhost:8761/eureka/
+      defaultZone: http://admin:${jhipster.registry.password}@jhipster-registry:8761/eureka/
 
 management:
   zipkin: # Use the "zipkin" Maven profile to have the Spring Cloud Zipkin dependencies
@@ -69,7 +69,7 @@ spring:
       indent-output: true
   cloud:
     config:
-      uri: http://admin:${jhipster.registry.password}@localhost:8761/config
+      uri: http://admin:${jhipster.registry.password}@jhipster-registry:8761/config
       # name of the config server's property source (file.yml) that we want to use
       name: SenProjectBackend1
       profile: dev

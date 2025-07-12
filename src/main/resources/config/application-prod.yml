@@ -50,7 +50,7 @@ eureka:
     prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://admin:${jhipster.registry.password}@jhipster-registry:8761/eureka/
+      defaultZone: http://admin:${jhipster.registry.password}@localhost:8761/eureka/
 
 management:
   prometheus:
@@ -111,9 +111,9 @@ spring:
   # Replace by 'prod, faker' to add the faker context and have sample data loaded in production
   liquibase:
     contexts: prod
-    url: jdbc:postgresql://10.160.6.96:5432/SenProjectBackend1
+    url: jdbc:postgresql://localhost:5432/SenProjectBackend1
   r2dbc:
-    url: r2dbc:postgresql://10.160.6.96:5432/SenProjectBackend1
+    url: r2dbc:postgresql://localhost:5432/SenProjectBackend1
     username: SenProjectBackend1
     password: admin
   thymeleaf:
