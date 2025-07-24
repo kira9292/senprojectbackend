@@ -11,7 +11,7 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/config
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/SenProjectBackend1
       - SPRING_LIQUIBASE_URL=jdbc:postgresql://postgresql:5432/SenProjectBackend1
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://keycloak:9080/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://130.185.119.253:9080/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=webapp
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
@@ -43,7 +43,7 @@ services:
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/eureka
       - SPRING_CLOUD_CONFIG_URI=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/config
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://keycloak:9080/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://130.185.119.253:9080/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=web_app
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
       - JHIPSTER_SLEEP=0
@@ -74,14 +74,14 @@ services:
     networks:
       - app-network
   keycloak:
-    image: quay.io/keycloak/keycloak:26.2.3
+    image: lyak008/senproject-keycloak-prod:latest
     command: 'start --import-realm'
-    volumes:
-      - ./realm-config:/opt/keycloak/data/import
-      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
-      - ./realm-config/keycloak-theme-sen-project.jar:/opt/keycloak/providers/keycloak-theme-sen-project.jar
-    env_file:
-      - ../../../.env
+#    volumes:
+#      - ./realm-config:/opt/keycloak/data/import
+#      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
+#      - ./realm-config/keycloak-theme-sen-project.jar:/opt/keycloak/providers/keycloak-theme-sen-project.jar
+#    env_file:
+#      - ../../../.env
     environment:
       - KC_DB=postgres
       - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
@@ -98,11 +98,14 @@ services:
       - KEYCLOAK_ADMIN_PASSWORD=admin_prod_2024
       - KC_CACHE=ispn
       - KC_LOG_LEVEL=INFO
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HEALTH_ENABLED=true
+
     ports:
       - "9080:9080"
       - "9443:9443"
     healthcheck:
-      test: ["CMD-SHELL", "bash /opt/keycloak/health-check.sh"]
+      test: ["CMD", "curl", "-f", "http://localhost:9080/q/health/live"]
       interval: 30s
       timeout: 10s
       retries: 5
