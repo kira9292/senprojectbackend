@@ -89,13 +89,11 @@ spring:
   # Replace by 'prod, faker' to add the faker context and have sample data loaded in production
   liquibase:
     contexts: prod
-    url: ${SPRING_LIQUIBASE_URL:jdbc:postgresql://postgresql:5432/SenProjectBackend1}
-    username: ${SPRING_LIQUIBASE_USERNAME:SenProjectBackend1}
-    password: ${SPRING_LIQUIBASE_PASSWORD:}
+    url: jdbc:postgresql://postgresql:5432/SenProjectBackend1
   r2dbc:
     url: ${SPRING_R2DBC_URL:r2dbc:postgresql://postgresql:5432/SenProjectBackend1}
     username: ${SPRING_R2DBC_USERNAME:SenProjectBackend1}
-    password: ${SPRING_R2DBC_PASSWORD:}
+    password: ${SPRING_R2DBC_PASSWORD:admin}
   thymeleaf:
     cache: true
 

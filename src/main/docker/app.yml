@@ -2,28 +2,26 @@
 name: senprojectbackend1
 services:
   app:
-    image: mouhacisse007/senprojectbackend1:v2
+    image: mouhacisse007/senprojectbackend1:v2.1.1
     env_file:
-      - ../../../.env
+      - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - SPRING_CLOUD_CONSUL_HOST=$${CONSUL_HOST:consul}
-      - SPRING_CLOUD_CONSUL_PORT=$${CONSUL_PORT:8500}
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/$${POSTGRES_DB}
-      - SPRING_LIQUIBASE_URL=jdbc:postgresql://postgresql:5432/$${POSTGRES_DB}
-      - SPRING_R2DBC_USERNAME=$${POSTGRES_USER}
-      - SPRING_R2DBC_PASSWORD=$${POSTGRES_PASSWORD}
-      - SPRING_LIQUIBASE_USERNAME=$${POSTGRES_USER}
-      - SPRING_LIQUIBASE_PASSWORD=$${POSTGRES_PASSWORD}
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=$${KEYCLOAK_ISSUER_URI}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=$${KEYCLOAK_CLIENT_ID}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=$${KEYCLOAK_CLIENT_SECRET}
+      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
+      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
+      - SPRING_APPLICATION_NAME=senprojectbackend1
+      - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/${POSTGRES_DB}
+      - SPRING_R2DBC_USERNAME=${POSTGRES_USER}
+      - SPRING_R2DBC_PASSWORD=${SPRING_R2DBC_PASSWORD}
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
-      - CLOUDINARY_CLOUD_NAME=$${CLOUDINARY_CLOUD_NAME}
-      - CLOUDINARY_API_KEY=$${CLOUDINARY_API_KEY}
-      - CLOUDINARY_API_SECRET=$${CLOUDINARY_API_SECRET}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
     ports:
       - '8081:8081'
     healthcheck:
@@ -47,16 +45,17 @@ services:
   senprojectgateway:
     image: mouhacisse007/senprojectgateway1:v2
     env_file:
-      - ../../../.env
+      - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - SPRING_CLOUD_CONSUL_HOST=$${CONSUL_HOST:consul}
-      - SPRING_CLOUD_CONSUL_PORT=$${CONSUL_PORT:8500}
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=$${KEYCLOAK_ISSUER_URI}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=$${GATEWAY_CLIENT_ID}
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=$${GATEWAY_CLIENT_SECRET}
+      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
+      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
+      - SPRING_APPLICATION_NAME=senprojectgateway1
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=${KEYCLOAK_ISSUER_URI}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${GATEWAY_CLIENT_ID}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${GATEWAY_CLIENT_SECRET}
       - JHIPSTER_SLEEP=0
     ports:
       - '8080:8080'
@@ -79,89 +78,23 @@ services:
     networks:
       - app-network
   postgresql:
-    image: postgres:17.2
-    env_file:
-      - ../../../.env
-    environment:
-      - POSTGRES_DB=$${POSTGRES_DB}
-      - POSTGRES_USER=$${POSTGRES_USER}
-      - POSTGRES_PASSWORD=$${POSTGRES_PASSWORD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    ports:
-      - '5432:5432'
+    extends:
+      file: ./postgresql.yml
+      service: postgresql
     networks:
       - app-network
-    restart: unless-stopped
   keycloak:
-    image: lyak008/senproject-keycloak-prod:latest
-    command: 'start --import-realm'
-    env_file:
-      - ../../../.env
-    #    volumes:
-    #      - ./realm-config:/opt/keycloak/data/import
-    #      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
-    #      - ./realm-config/keycloak-theme-sen-project.jar:/opt/keycloak/providers/keycloak-theme-sen-project.jar
-    #    env_file:
-    #      - ../../../.env
-    environment:
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/$${KEYCLOAK_DB_NAME}
-      - KC_DB_USERNAME=$${KEYCLOAK_DB_USERNAME}
-      - KC_DB_PASSWORD=$${KEYCLOAK_DB_PASSWORD}
-      - KC_HOSTNAME_STRICT=false
-      - KC_HTTP_ENABLED=true
-      - KC_HTTP_PORT=9080
-      - KC_HTTPS_PORT=9443
-      - KC_PROXY=edge
-      - KC_HEALTH_ENABLED=true
-      - KC_HTTP_MANAGEMENT_PORT=9990
-      - KEYCLOAK_ADMIN=$${KEYCLOAK_ADMIN_USER}
-      - KEYCLOAK_ADMIN_PASSWORD=$${KEYCLOAK_ADMIN_PASSWORD}
-      - KC_CACHE=ispn
-      - KC_LOG_LEVEL=INFO
-      - KC_HOSTNAME_STRICT_HTTPS=false
-
-    ports:
-      - '9080:9080'
-      - '9443:9443'
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:9080/q/health/live']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-    depends_on:
-      keycloak-db:
-        condition: service_healthy
+    extends:
+      file: ./keycloak.yml
+      service: keycloak
     networks:
       - app-network
-    labels:
-      org.springframework.boot.ignore: true
   keycloak-db:
-    image: postgres:15-alpine
-    env_file:
-      - ../../../.env
-    environment:
-      - POSTGRES_DB=$${KEYCLOAK_DB_NAME}
-      - POSTGRES_USER=$${KEYCLOAK_DB_USERNAME}
-      - POSTGRES_PASSWORD=$${KEYCLOAK_DB_PASSWORD}
-    volumes:
-      - keycloak-db-data:/var/lib/postgresql/data
+    extends:
+      file: ./keycloak.yml
+      service: keycloak-db
     networks:
       - app-network
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U $${KEYCLOAK_DB_USERNAME} -d $${KEYCLOAK_DB_NAME}']
-      interval: 10s
-      timeout: 5s
-      retries: 5
   consul:
     extends:
       file: ./consul.yml
@@ -176,10 +109,11 @@ services:
     networks:
       - app-network
 volumes:
-  keycloak-db-data:
-    driver: local
   postgres-data:
     driver: local
+  keycloak-db-data:
+    driver: local
+
 networks:
   app-network:
     driver: bridge
