@@ -13,45 +13,8 @@
 # Full reference is available at:
 # http://docs.spring.io/spring-boot/docs/current/reference/html/common-application-properties.html
 # ===================================================================
-
----
 # Conditionally disable springdoc on missing api-docs profile
-spring:
-  servlet:
-    multipart:
-      max-file-size: 20MB
-      max-request-size: 30MB
-  config:
-    activate:
-      on-profile: '!api-docs'
-springdoc:
-  api-docs:
-    enabled: false
 ---
-eureka:
-  client:
-    enabled: true
-    healthcheck:
-      enabled: true
-    fetch-registry: true
-    register-with-eureka: true
-    instance-info-replication-interval-seconds: 10
-    registry-fetch-interval-seconds: 10
-  instance:
-    appname: senprojectbackend1
-    instanceId: senprojectbackend1:${spring.application.instance-id:${random.value}}
-    lease-renewal-interval-in-seconds: 5
-    lease-expiration-duration-in-seconds: 10
-    status-page-url-path: ${management.endpoints.web.base-path}/info
-    health-check-url-path: ${management.endpoints.web.base-path}/health
-    metadata-map:
-      zone: primary # This is needed for the load balancer
-      profile: ${spring.profiles.active}
-      version: '@project.version@'
-      git-version: ${git.commit.id.describe:}
-      git-commit: ${git.commit.id.abbrev:}
-      git-branch: ${git.branch:}
-      context-path: ${server.servlet.context-path:}
 reactive:
   feign:
     circuit:
@@ -128,11 +91,43 @@ management:
       application: ${spring.application.name}
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 30MB
+    config:
+      activate:
+        on-profile: '!api-docs'
+  springdoc:
+    api-docs:
+      enabled: false
   autoconfigure:
     exclude: org.springframework.boot.actuate.autoconfigure.metrics.jdbc.DataSourcePoolMetricsAutoConfiguration
   application:
     name: SenProjectBackend1
   cloud:
+    consul:
+      config:
+        enabled: false
+      enabled: true
+      host: localhost
+      port: 8500
+      discovery:
+        enabled: true
+        prefer-ip-address: true
+        health-check-interval: 10s
+        health-check-timeout: 3s
+        health-check-critical-timeout: 30s
+        instance-id: ${spring.application.name}:${spring.application.instance-id:${random.value}}
+        service-name: ${spring.application.name}
+        metadata:
+          zone: primary
+          profile: ${spring.profiles.active}
+          version: '@project.version@'
+          git-version: ${git.commit.id.describe:}
+          git-commit: ${git.commit.id.abbrev:}
+          git-branch: ${git.branch:}
+          context-path: ${server.servlet.context-path:}
     function:
       definition: notificationConsumer
     stream:
