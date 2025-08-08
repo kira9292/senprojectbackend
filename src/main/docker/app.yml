@@ -4,7 +4,7 @@ services:
   app:
     image: mouhacisse007/senprojectbackend1:v2
     env_file:
-      - ../../.env
+      - ../../../.env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
@@ -47,7 +47,7 @@ services:
   senprojectgateway:
     image: mouhacisse007/senprojectgateway1:v2
     env_file:
-      - ../../.env
+      - ../../../.env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
@@ -81,7 +81,7 @@ services:
   postgresql:
     image: postgres:17.2
     env_file:
-      - ../../.env
+      - ../../../.env
     environment:
       - POSTGRES_DB=$${POSTGRES_DB}
       - POSTGRES_USER=$${POSTGRES_USER}
@@ -102,7 +102,7 @@ services:
     image: lyak008/senproject-keycloak-prod:latest
     command: 'start --import-realm'
     env_file:
-      - ../../.env
+      - ../../../.env
     #    volumes:
     #      - ./realm-config:/opt/keycloak/data/import
     #      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
@@ -147,7 +147,7 @@ services:
   keycloak-db:
     image: postgres:15-alpine
     env_file:
-      - ../../.env
+      - ../../../.env
     environment:
       - POSTGRES_DB=$${KEYCLOAK_DB_NAME}
       - POSTGRES_USER=$${KEYCLOAK_DB_USERNAME}
