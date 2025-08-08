@@ -63,7 +63,7 @@ spring:
     stream:
       kafka:
         binder:
-          brokers: kafka:9092 # URL des brokers Kafka (à adapter pour prod)
+          brokers: ${SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS:kafka:9092}
       bindings:
         teamInvitationProducer:
           destination: team-invitation
@@ -89,11 +89,13 @@ spring:
   # Replace by 'prod, faker' to add the faker context and have sample data loaded in production
   liquibase:
     contexts: prod
-    url: jdbc:postgresql://10.160.6.96:5432/SenProjectBackend1
+    url: ${SPRING_LIQUIBASE_URL:jdbc:postgresql://postgresql:5432/SenProjectBackend1}
+    username: ${SPRING_LIQUIBASE_USERNAME:SenProjectBackend1}
+    password: ${SPRING_LIQUIBASE_PASSWORD:}
   r2dbc:
-    url: r2dbc:postgresql://10.160.6.96:5432/SenProjectBackend1
-    username: SenProjectBackend1
-    password: admin
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://postgresql:5432/SenProjectBackend1}
+    username: ${SPRING_R2DBC_USERNAME:SenProjectBackend1}
+    password: ${SPRING_R2DBC_PASSWORD:}
   thymeleaf:
     cache: true
 
@@ -113,11 +115,11 @@ management:
       client:
         provider:
           oidc:
-            issuer-uri: http://130.185.119.253:9080/realms/jhipster
+            issuer-uri: ${SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI:http://130.185.119.253:9080/realms/jhipster}
         registration:
           oidc:
-            client-id: web_app
-            client-secret: SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID:web_app}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET:}
             scope: web-origins ,roles ,openid ,phone ,microprofile-jwt ,offline_access ,jhipster ,address ,profile ,email
 
 # ===================================================================
