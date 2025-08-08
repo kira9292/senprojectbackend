@@ -2,7 +2,7 @@
 name: senprojectbackend1
 services:
   app:
-    image: lyak008/monapp:prod
+    image: mouhacisse007/senprojectbackend1:v2
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
