@@ -3,8 +3,8 @@ name: senprojectbackend1
 services:
   jhipster-registry:
     image: lyak008/senproject-registry:latest
-#    volumes:
-#      - ./central-server-config:/central-config
+    #    volumes:
+    #      - ./central-server-config:/central-config
     # When run with the "dev" Spring profile, the JHipster Registry will
     # read the config from the local filesystem (central-server-config directory)
     # When run with the "prod" Spring profile, it will read the configuration from a Git repository
@@ -20,7 +20,7 @@ services:
       # - SPRING_CLOUD_CONFIG_SERVER_COMPOSITE_0_URI=https://github.com/jhipster/jhipster-registry/
       # - SPRING_CLOUD_CONFIG_SERVER_COMPOSITE_0_SEARCH_PATHS=central-config
       # For keycloak to work, you need to add '127.0.0.1 keycloak' to your hosts file
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://keycloak:9080/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://senproject-keycloak-prod.duckdns.org/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=jhipster-registry
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=jhipster-registry
     # If you want to expose these ports outside your dev PC,

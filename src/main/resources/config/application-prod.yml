@@ -45,25 +45,6 @@ logging:
     org.springframework.boot.web.embedded: ERROR
     org.springframework.web.servlet.DispatcherServlet: WARN
 
-eureka:
-  instance:
-    prefer-ip-address: true
-  client:
-    service-url:
-      defaultZone: http://admin:${jhipster.registry.password}@localhost:8761/eureka/
-
-management:
-  prometheus:
-    metrics:
-      export:
-        enabled: false
-  zipkin: # Use the "zipkin" Maven profile to have the Spring Cloud Zipkin dependencies
-    tracing:
-      endpoint: http://zipkin:9411/api/v2/spans
-  tracing:
-    sampling:
-      probability: 1.0 # report 100% of traces
-
 spring:
   devtools:
     restart:
@@ -71,21 +52,18 @@ spring:
     livereload:
       enabled: false
   cloud:
-    config:
-      retry:
-        initial-interval: 1000
-        max-interval: 2000
-        max-attempts: 100
-      uri: http://admin:${jhipster.registry.password}@jhipster-registry:8761/config
-      # name of the config server's property source (file.yml) that we want to use
-      name: SenProjectBackend1
-      profile: prod
-      label: main # toggle to switch to a different version of the configuration as stored in git
-      # it can be set to any label, branch or commit of the configuration source Git repository
+    consul:
+      host: consul-server
+      port: 8500
+      discovery:
+        prefer-ip-address: true
+        health-check-path: ${management.endpoints.web.base-path}/health
+        health-check-interval: 15s
+        instance-id: ${spring.application.name}-prod:${spring.application.instance-id:${random.value}}
     stream:
       kafka:
         binder:
-          brokers: kafka:9092 # URL des brokers Kafka (à adapter pour prod)
+          brokers: ${SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS:kafka:9092}
       bindings:
         teamInvitationProducer:
           destination: team-invitation
@@ -111,13 +89,38 @@ spring:
   # Replace by 'prod, faker' to add the faker context and have sample data loaded in production
   liquibase:
     contexts: prod
-    url: jdbc:postgresql://localhost:5432/SenProjectBackend1
+    url: jdbc:postgresql://postgresql:5432/SenProjectBackend1
+  messages:
+    cache-duration: PT1S # 1 second, see the ISO 8601 standard
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/SenProjectBackend1
-    username: SenProjectBackend1
-    password: admin
+    url: ${SPRING_R2DBC_URL:r2dbc:postgresql://postgresql:5432/SenProjectBackend1}
+    username: ${SPRING_R2DBC_USERNAME:SenProjectBackend1}
+    password: ${SPRING_R2DBC_PASSWORD:admin}
   thymeleaf:
     cache: true
+
+management:
+  prometheus:
+    metrics:
+      export:
+        enabled: false
+  zipkin: # Use the "zipkin" Maven profile to have the Spring Cloud Zipkin dependencies
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0 # report 100% of traces
+  security:
+    oauth2:
+      client:
+        provider:
+          oidc:
+            issuer-uri: ${SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI:http://130.185.119.253:9080/realms/jhipster}
+        registration:
+          oidc:
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID:web_app}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET:}
+            scope: web-origins ,roles ,openid ,phone ,microprofile-jwt ,offline_access ,jhipster ,address ,profile ,email
 
 # ===================================================================
 # To enable TLS in production, generate a certificate using:
@@ -156,8 +159,9 @@ jhipster:
   http:
     cache: # Used by the CachingHttpHeadersFilter
       timeToLiveInDays: 1461
-  registry:
-    password: admin
+  # Configuration supprimée - plus besoin avec Consul
+  # registry:
+  #   password: admin
   logging:
     use-json-format: false # By default, logs are not in Json format
     logstash: # Forward logs to logstash over a socket, used by LoggingConfiguration

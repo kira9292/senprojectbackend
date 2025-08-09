@@ -1,6 +1,5 @@
 package com.senprojectbackend1.service;
 
-import com.netflix.appinfo.ApplicationInfoManager;
 import com.senprojectbackend1.domain.TeamMembership;
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
 import com.senprojectbackend1.domain.enumeration.MembershipStatus;

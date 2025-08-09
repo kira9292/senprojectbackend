@@ -2,19 +2,26 @@
 name: senprojectbackend1
 services:
   app:
-    image: lyak008/monapp:prod
+    image: mouhacisse007/senprojectbackend1:v2.1.1
+    env_file:
+      - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/eureka
-      - SPRING_CLOUD_CONFIG_URI=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/config
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/SenProjectBackend1
-      - SPRING_LIQUIBASE_URL=jdbc:postgresql://postgresql:5432/SenProjectBackend1
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://130.185.119.253:9080/realms/jhipster
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=webapp
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
+      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
+      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
+      - SPRING_APPLICATION_NAME=senprojectbackend1
+      - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/${POSTGRES_DB}
+      - SPRING_R2DBC_USERNAME=${POSTGRES_USER}
+      - SPRING_R2DBC_PASSWORD=${SPRING_R2DBC_PASSWORD}
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
       - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
     ports:
       - '8081:8081'
     healthcheck:
@@ -31,21 +38,24 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      jhipster-registry:
+      consul:
         condition: service_healthy
     networks:
       - app-network
   senprojectgateway:
-    image: mouhacisse007/senprojectgateway1:v2
+    image: mouhacisse007/senprojectgateway1:v2.1.2
+    env_file:
+      - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/eureka
-      - SPRING_CLOUD_CONFIG_URI=http://admin:$${jhipster.registry.password}@jhipster-registry:8761/config
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=http://130.185.119.253:9080/realms/jhipster
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=web_app
-      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC
+      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
+      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
+      - SPRING_APPLICATION_NAME=senprojectgateway1
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${GATEWAY_CLIENT_ID}
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${GATEWAY_CLIENT_SECRET}
       - JHIPSTER_SLEEP=0
     ports:
       - '8080:8080'
@@ -61,10 +71,10 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-      jhipster-registry:
+      consul:
         condition: service_healthy
-#      app:
-#        condition: service_healthy
+    #      app:
+    #        condition: service_healthy
     networks:
       - app-network
   postgresql:
@@ -74,75 +84,24 @@ services:
     networks:
       - app-network
   keycloak:
-    image: lyak008/senproject-keycloak-prod:latest
-    command: 'start --import-realm'
-#    volumes:
-#      - ./realm-config:/opt/keycloak/data/import
-#      - ./realm-config/keycloak-health-check.sh:/opt/keycloak/health-check.sh
-#      - ./realm-config/keycloak-theme-sen-project.jar:/opt/keycloak/providers/keycloak-theme-sen-project.jar
-#    env_file:
-#      - ../../../.env
-    environment:
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
-      - KC_DB_USERNAME=keycloak_user
-      - KC_DB_PASSWORD=keycloak_password_prod_2024
-      - KC_HOSTNAME_STRICT=false
-      - KC_HTTP_ENABLED=true
-      - KC_HTTP_PORT=9080
-      - KC_HTTPS_PORT=9443
-      - KC_PROXY=edge
-      - KC_HEALTH_ENABLED=true
-      - KC_HTTP_MANAGEMENT_PORT=9990
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin_prod_2024
-      - KC_CACHE=ispn
-      - KC_LOG_LEVEL=INFO
-      - KC_HOSTNAME_STRICT_HTTPS=false
-      - KC_HEALTH_ENABLED=true
-
-    ports:
-      - "9080:9080"
-      - "9443:9443"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9080/q/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
-    depends_on:
-      keycloak-db:
-        condition: service_healthy
-    networks:
-      - app-network
-    labels:
-      org.springframework.boot.ignore: true
-  keycloak-db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=keycloak
-      - POSTGRES_USER=keycloak_user
-      - POSTGRES_PASSWORD=keycloak_password_prod_2024
-    volumes:
-      - keycloak-db-data:/var/lib/postgresql/data
-    networks:
-      - app-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak_user -d keycloak"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  jhipster-registry:
     extends:
-      file: ./jhipster-registry.yml
-      service: jhipster-registry
-    depends_on:
-      keycloak:
-        condition: service_healthy
+      file: ./keycloak.yml
+      service: keycloak
     networks:
       - app-network
+  keycloak-db:
+    extends:
+      file: ./keycloak.yml
+      service: keycloak-db
+    networks:
+      - app-network
+  consul:
+    extends:
+      file: ./consul.yml
+      service: consul
+    networks:
+      - app-network
+    restart: unless-stopped
   kafka:
     extends:
       file: ./kafka.yml
@@ -150,8 +109,11 @@ services:
     networks:
       - app-network
 volumes:
+  postgres-data:
+    driver: local
   keycloak-db-data:
     driver: local
+
 networks:
   app-network:
     driver: bridge
