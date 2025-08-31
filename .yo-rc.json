@@ -30,7 +30,7 @@
     "jwtSecretKey": "NThhYjA1ZDUxM2ZlM2FmOTVmODc3YzE0MmU3Y2FiNWM2ZjNhMmU0Zjc2MTJmZWNiNWNkYmZmMTYzYmI1ZjA3MjhlZmZiZjRlOTBmYmM2MmMwN2VkNzFmMmQ1ZmUxZjdmYzJkOA==",
     "languages": ["fr", "en"],
     "lastLiquibaseTimestamp": 1743368311000,
-    "messageBroker": "kafka",
+    "messageBroker": false,
     "nativeLanguage": "fr",
     "packageName": "com.senprojectbackend1",
     "prodDatabaseType": "postgresql",

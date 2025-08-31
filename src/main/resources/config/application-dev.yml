@@ -32,8 +32,7 @@ logging:
     # Désactiver autres logs non essentiels
     org.springframework.boot.actuate: WARN
     org.springframework.cloud.config: WARN
-    org.springframework.kafka: INFO
-    org.apache.kafka: WARN
+
     org.springframework.boot.docker.compose: ERROR
     javax.management.remote.rmi: ERROR
     org.springframework.aop: ERROR
@@ -52,33 +51,7 @@ spring:
   jackson:
     serialization:
       indent-output: true
-  cloud:
-    consul:
-      host: localhost
-      port: 8500
-      discovery:
-        prefer-ip-address: true
-        health-check-path: ${management.endpoints.web.base-path}/health
-        health-check-interval: 15s
-        instance-id: ${spring.application.name}-dev:${spring.application.instance-id:${random.value}}
-    function:
-      definition: notificationConsumer
-    stream:
-      kafka:
-        binder:
-          brokers: localhost:29092
-          auto-create-topics: true
-          required-acks: 1
-      bindings:
-        notificationConsumer-in-0:
-          destination: notification-topic
-          content-type: application/json
-          group: senproject-notification-consumer
-          consumer:
-            use-native-decoding: false
-        notificationProducer-out-0:
-          destination: notification-topic
-          content-type: application/json
+
 
   liquibase:
     # Remove 'faker' if you do not want the sample data to be loaded automatically
@@ -130,6 +103,3 @@ jhipster:
 # https://www.jhipster.tech/common-application-properties/
 # ===================================================================
 
-#application:
-#  kafka:
-#    notification-topic: notification-topic

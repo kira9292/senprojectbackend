@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn compile:*)",
+      "Bash(docker load:*)",
+      "Bash(docker push:*)",
+      "Read(D:\\projet\\senprojectgateway/**)",
+      "Read(D:\\projet\\senprojectgateway\\src\\main\\resources\\config/**)",
+      "Read(D:\\projet\\senprojectgateway\\src\\main\\resources\\config/**)",
+      "Bash(mvn clean:*)",
+      "Read(D:\\projet\\senprojectgateway/**)",
+      "Read(D:\\projet\\senprojectgateway/**)",
+      "Read(D:\\projet\\senprojectgateway/**)",
+      "Bash(mvn:*)",
+      "Bash(docker login:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

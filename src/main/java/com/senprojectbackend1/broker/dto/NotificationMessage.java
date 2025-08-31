@@ -5,7 +5,7 @@ import java.io.Serializable;
 import java.time.Instant;
 
 /**
- * DTO pour les messages de notification échangés via le broker Kafka.
+ * DTO pour les messages de notification échangés via le broker interne.
  * Cette classe est indépendante des entités du domaine et peut être sérialisée/désérialisée
  * sans dépendre des classes du domaine.
  */

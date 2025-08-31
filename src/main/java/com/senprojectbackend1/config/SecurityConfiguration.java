@@ -75,22 +75,43 @@ public class SecurityConfiguration {
             .requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
             .authorizeExchange(authz ->
                 authz
-                    .pathMatchers("/api/projects/paginated")
-                    .permitAll()
-                    .pathMatchers("/api/projects/popular")
-                    .permitAll()
-                    .pathMatchers("/api/engagement-projects/project/*")
-                    .permitAll()
-                    .pathMatchers("/api/**")
-                    .authenticated()
+                    // Endpoints publics (sans authentification)
                     .pathMatchers("/api/authenticate")
                     .permitAll()
                     .pathMatchers("/api/auth-info")
                     .permitAll()
-                    .pathMatchers("/api/admin/**")
-                    .hasAuthority(AuthoritiesConstants.ADMIN)
-                    .pathMatchers("/v3/api-docs/**")
-                    .hasAuthority(AuthoritiesConstants.ADMIN)
+                    
+                    // Projects publics
+                    .pathMatchers("/api/projects", "/api/projects/**")
+                    .permitAll()
+                    .pathMatchers("/api/projects/popular")
+                    .permitAll()
+                    .pathMatchers("/api/projects/paginated")
+                    .permitAll()
+                    .pathMatchers("/api/projects/check-title")
+                    .permitAll()
+                    
+                    // Teams publics (lecture seule)
+                    .pathMatchers("/api/teams", "/api/teams/{id}", "/api/teams/count", "/api/teams/project/*")
+                    .permitAll()
+                    
+                    // Teams privées (nécessitent authentification)
+                    .pathMatchers("/api/teams/myteams", "/api/teams/myteams/**")
+                    .authenticated()
+                    
+                    // Tags publics
+                    .pathMatchers("/api/tags", "/api/tags/**")
+                    .permitAll()
+                    
+                    // Engagement projects publics
+                    .pathMatchers("/api/engagement-projects/project/*")
+                    .permitAll()
+                    
+                    // Notifications (authentifiées)  
+                    .pathMatchers("/api/notifications/**")
+                    .authenticated()
+                    
+                    // Endpoints publics de monitoring
                     .pathMatchers("/management/health")
                     .permitAll()
                     .pathMatchers("/management/health/**")
@@ -99,8 +120,18 @@ public class SecurityConfiguration {
                     .permitAll()
                     .pathMatchers("/management/prometheus")
                     .permitAll()
+                    
+                    // Endpoints admin uniquement
+                    .pathMatchers("/api/admin/**")
+                    .hasAuthority(AuthoritiesConstants.ADMIN)
+                    .pathMatchers("/v3/api-docs/**")
+                    .hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/management/**")
                     .hasAuthority(AuthoritiesConstants.ADMIN)
+                    
+                    // TOUS les autres endpoints API = AUTHENTIFICATION REQUISE
+                    .pathMatchers("/api/**")
+                    .authenticated()
             )
             .oauth2Client(withDefaults())
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));

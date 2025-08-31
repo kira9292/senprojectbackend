@@ -1,4 +1,4 @@
 org.springframework.test.context.ContextCustomizerFactory = \
     com.senprojectbackend1.config.\
     SqlTestContainersSpringContextCustomizerFactory,com.senprojectbackend1.\
-    config.KafkaTestContainersSpringContextCustomizerFactory
+    

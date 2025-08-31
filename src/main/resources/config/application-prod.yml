@@ -32,8 +32,7 @@ logging:
     # Désactiver tous les logs non critiques en production
     org.springframework.boot.actuate: ERROR
     org.springframework.cloud.config: ERROR
-    org.springframework.kafka: WARN
-    org.apache.kafka: ERROR
+
     org.springframework.boot.docker.compose: OFF
     javax.management.remote.rmi: OFF
     org.springframework.aop: OFF
@@ -51,41 +50,7 @@ spring:
       enabled: false
     livereload:
       enabled: false
-  cloud:
-    consul:
-      host: consul-server
-      port: 8500
-      discovery:
-        prefer-ip-address: true
-        health-check-path: ${management.endpoints.web.base-path}/health
-        health-check-interval: 15s
-        instance-id: ${spring.application.name}-prod:${spring.application.instance-id:${random.value}}
-    stream:
-      kafka:
-        binder:
-          brokers: ${SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS:kafka:9092}
-      bindings:
-        teamInvitationProducer:
-          destination: team-invitation
-          content-type: application/json
-        teamInvitationConsumer:
-          destination: team-invitation
-          content-type: application/json
-          group: senproject-team-invitation
-        teamMembershipUpdateProducer:
-          destination: team-membership-update
-          content-type: application/json
-        teamMembershipUpdateConsumer:
-          destination: team-membership-update
-          content-type: application/json
-          group: senproject-membership-update
-        notificationProducer:
-          destination: notification-created
-          content-type: application/json
-        notificationConsumer:
-          destination: notification-created
-          content-type: application/json
-          group: senproject-notification
+
   # Replace by 'prod, faker' to add the faker context and have sample data loaded in production
   liquibase:
     contexts: prod
@@ -115,12 +80,15 @@ management:
       client:
         provider:
           oidc:
-            issuer-uri: ${SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI:http://130.185.119.253:9080/realms/jhipster}
+            issuer-uri: ${SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI:https://senproject-keycloak-prod.duckdns.org/realms/jhipster}
         registration:
           oidc:
             client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID:web_app}
-            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET:}
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET:SPxQQpQZBvfPqd9BXwDNbN7SLKckYYcC}
             scope: web-origins ,roles ,openid ,phone ,microprofile-jwt ,offline_access ,jhipster ,address ,profile ,email
+      resourceserver:
+        jwt:
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI:https://senproject-keycloak-prod.duckdns.org/realms/jhipster}
 
 # ===================================================================
 # To enable TLS in production, generate a certificate using:

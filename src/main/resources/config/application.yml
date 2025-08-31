@@ -105,47 +105,7 @@ spring:
     exclude: org.springframework.boot.actuate.autoconfigure.metrics.jdbc.DataSourcePoolMetricsAutoConfiguration
   application:
     name: SenProjectBackend1
-  cloud:
-    consul:
-      config:
-        enabled: false
-      enabled: true
-      host: localhost
-      port: 8500
-      discovery:
-        enabled: true
-        prefer-ip-address: true
-        health-check-interval: 10s
-        health-check-timeout: 3s
-        health-check-critical-timeout: 30s
-        instance-id: ${spring.application.name}:${spring.application.instance-id:${random.value}}
-        service-name: ${spring.application.name}
-        metadata:
-          zone: primary
-          profile: ${spring.profiles.active}
-          version: '@project.version@'
-          git-version: ${git.commit.id.describe:}
-          git-commit: ${git.commit.id.abbrev:}
-          git-branch: ${git.branch:}
-          context-path: ${server.servlet.context-path:}
-    function:
-      definition: notificationConsumer
-    stream:
-      kafka:
-        binder:
-          replicationFactor: 1
-          auto-create-topics: true
-          brokers: localhost:29092
-          required-acks: 1
-      bindings:
-        notificationConsumer-in-0:
-          destination: notification-topic
-          content-type: application/json
-          group: senproject-notification-consumer
-          consumer:
-            use-native-decoding: false
-        notificationProducer-out-0:
-          destination: notification-topic
+
   profiles:
     # The commented value for `active` can be replaced with valid Spring profiles to load.
     # Otherwise, it will be filled in by maven when building the JAR file

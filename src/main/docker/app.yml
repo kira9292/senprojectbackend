@@ -2,15 +2,13 @@
 name: senprojectbackend1
 services:
   app:
-    image: mouhacisse007/senprojectbackend1:v2.1.1
+    image: lyak008/senprojectbackend:v1
     env_file:
       - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
-      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
       - SPRING_APPLICATION_NAME=senprojectbackend1
       - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/${POSTGRES_DB}
       - SPRING_R2DBC_USERNAME=${POSTGRES_USER}
@@ -18,7 +16,6 @@ services:
       - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - SPRING_CLOUD_STREAM_KAFKA_BINDER_BROKERS=kafka:9092
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
@@ -38,20 +35,16 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
-      consul:
-        condition: service_healthy
     networks:
       - app-network
   senprojectgateway:
-    image: mouhacisse007/senprojectgateway1:v2.1.2
+    image: lyak008/senprojectgateway1:v1
     env_file:
       - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
-      - SPRING_CLOUD_CONSUL_HOST=${CONSUL_HOST:-consul}
-      - SPRING_CLOUD_CONSUL_PORT=${CONSUL_PORT:-8500}
       - SPRING_APPLICATION_NAME=senprojectgateway1
       - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${GATEWAY_CLIENT_ID}
@@ -70,8 +63,6 @@ services:
       retries: 40
     depends_on:
       keycloak:
-        condition: service_healthy
-      consul:
         condition: service_healthy
     #      app:
     #        condition: service_healthy
@@ -95,19 +86,7 @@ services:
       service: keycloak-db
     networks:
       - app-network
-  consul:
-    extends:
-      file: ./consul.yml
-      service: consul
-    networks:
-      - app-network
-    restart: unless-stopped
-  kafka:
-    extends:
-      file: ./kafka.yml
-      service: kafka
-    networks:
-      - app-network
+
 volumes:
   postgres-data:
     driver: local
