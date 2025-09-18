@@ -1509,10 +1509,9 @@
     {
       "name": "google-user-role-mapper",
       "identityProviderAlias": "google",
-      "identityProviderMapper": "oidc-role-idp-mapper",
+      "identityProviderMapper": "oidc-hardcoded-role-idp-mapper",
       "config": {
-        "role": "ROLE_USER",
-        "claim": "email"
+        "role": "ROLE_USER"
       }
     }
   ],

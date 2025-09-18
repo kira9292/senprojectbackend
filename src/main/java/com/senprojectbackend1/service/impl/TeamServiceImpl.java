@@ -218,7 +218,7 @@ public class TeamServiceImpl implements TeamService {
                     .findMemberStatus(teamId, userProfile.getId())
                     .switchIfEmpty(Mono.error(new ProjectBusinessException("User is not a member of the team")))
                     .flatMap(status -> {
-                        if (!"ACCEPTED".equals(status)) {
+                        if (!MembershipStatus.ACCEPTED.name().equals(status)) {
                             return Mono.error(new ProjectBusinessException("User is not an accepted member of the team"));
                         }
                         return teamRepository.updateProjectsForDeletedTeam(teamId).then(teamRepository.markTeamAsDeleted(teamId));
@@ -229,9 +229,21 @@ public class TeamServiceImpl implements TeamService {
     @Override
     public Mono<TeamDTO> createTeamWithMembers(TeamDTO teamDTO, List<String> targetLogins) {
         LOG.debug("Création d'une équipe avec membres : {}", targetLogins);
-        teamDTO.setCreatedAt(Instant.now());
-        teamDTO.setTotalLikes(0);
-        teamDTO.setIsDeleted(false);
+
+        // Vérification préalable de l'unicité du nom
+        return checkTeamNameExists(teamDTO.getName(), null).flatMap(exists -> {
+            if (exists) {
+                return Mono.error(new ProjectBusinessException("Une équipe avec ce nom existe déjà"));
+            }
+
+            teamDTO.setCreatedAt(Instant.now());
+            teamDTO.setTotalLikes(0);
+            teamDTO.setIsDeleted(false);
+            return createTeamInternal(teamDTO, targetLogins);
+        });
+    }
+
+    private Mono<TeamDTO> createTeamInternal(TeamDTO teamDTO, List<String> targetLogins) {
         Mono<TeamDTO> teamMono;
         if (teamDTO.getLogo() != null && !teamDTO.getLogo().isBlank() && !teamDTO.getLogo().startsWith("http")) {
             teamMono = cloudinaryService
@@ -258,7 +270,7 @@ public class TeamServiceImpl implements TeamService {
                                     .addMemberWithStatusAndRole(
                                         team.getId(),
                                         creatorProfile.getId(),
-                                        "ACCEPTED",
+                                        MembershipStatus.ACCEPTED.name(),
                                         "LEAD",
                                         Instant.now(),
                                         Instant.now()
@@ -511,5 +523,26 @@ public class TeamServiceImpl implements TeamService {
                     }
                 })
         );
+    }
+
+    @Override
+    public Mono<Boolean> checkTeamNameExists(String name, Long editTeamId) {
+        if (name == null || name.trim().isEmpty()) {
+            return Mono.error(new ProjectBusinessException("Le nom ne peut pas être vide"));
+        }
+
+        if (editTeamId != null) {
+            return teamRepository
+                .findById(editTeamId)
+                .switchIfEmpty(Mono.error(new ProjectBusinessException("Équipe à éditer non trouvée")))
+                .flatMap(existingTeam -> {
+                    if (existingTeam.getName().equalsIgnoreCase(name.trim())) {
+                        return Mono.just(false); // Même nom que l'existant
+                    }
+                    return teamRepository.existsByNameAndIdNot(name.trim(), editTeamId);
+                });
+        }
+
+        return teamRepository.existsByName(name.trim());
     }
 }

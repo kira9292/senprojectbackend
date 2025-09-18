@@ -401,16 +401,39 @@ public class TeamResource {
         }
         return teamService
             .createTeamWithMembers(teamDTO, targetLogins)
-            .handle((result, sink) -> {
+            .map(result -> {
                 try {
-                    sink.next(
-                        ResponseEntity.created(new URI("/api/teams/" + result.getId()))
-                            .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                            .body(result)
-                    );
+                    return ResponseEntity.created(new URI("/api/teams/" + result.getId()))
+                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
+                        .body(result);
                 } catch (URISyntaxException e) {
-                    sink.error(new RuntimeException(e));
+                    throw new RuntimeException(e);
                 }
+            })
+            .onErrorMap(e -> {
+                LOG.error("Error creating team: {}", e.getMessage());
+
+                // Gestion spécifique des erreurs de contrainte d'unicité
+                String errorMessage = e.getMessage();
+                if (errorMessage != null && errorMessage.contains("ux_team__name")) {
+                    return new BadRequestAlertException("Une équipe avec ce nom existe déjà", ENTITY_NAME, "nameexists");
+                }
+
+                // Autres erreurs de données
+                if (
+                    errorMessage != null &&
+                    (errorMessage.contains("DataIntegrityViolationException") ||
+                        errorMessage.contains("ConstraintViolationException") ||
+                        errorMessage.contains("Failure during data access"))
+                ) {
+                    return new BadRequestAlertException(
+                        "Erreur lors de la création de l'équipe : données invalides",
+                        ENTITY_NAME,
+                        "datainvalid"
+                    );
+                }
+
+                return e;
             });
     }
 
@@ -538,5 +561,24 @@ public class TeamResource {
                             });
                     })
             );
+    }
+
+    /**
+     * {@code GET /teams/check-name} : Vérifie si un nom d'équipe existe déjà.
+     *
+     * @param name le nom à vérifier
+     * @param edit l'ID de l'équipe en cours d'édition (optionnel)
+     * @return {@code true} si le nom existe déjà, {@code false} sinon
+     */
+    @GetMapping("/check-name")
+    public Mono<ResponseEntity<Boolean>> checkTeamName(@RequestParam String name, @RequestParam(required = false) Long edit) {
+        LOG.debug("REST request to check if Team name exists : {}, edit: {}", name, edit);
+        return teamService
+            .checkTeamNameExists(name, edit)
+            .map(ResponseEntity::ok)
+            .onErrorResume(e -> {
+                LOG.error("Error checking team name: {}", e.getMessage());
+                return Mono.just(ResponseEntity.badRequest().body(false));
+            });
     }
 }

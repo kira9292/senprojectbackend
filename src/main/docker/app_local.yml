@@ -1,5 +1,5 @@
-# This configuration is intended for development purpose, it's **your** responsibility to harden it for production
-name: senprojectbackend1
+# This configuration is intended for local development purpose
+name: senprojectbackend-local
 services:
   app:
     image: lyak008/senprojectbackend:v1
@@ -7,13 +7,13 @@ services:
       - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
-      - SPRING_PROFILES_ACTIVE=prod,api-docs
+      - SPRING_PROFILES_ACTIVE=dev,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_APPLICATION_NAME=senprojectbackend1
-      - SPRING_R2DBC_URL=r2dbc:postgresql://postgresql:5432/${POSTGRES_DB}
+      - SPRING_R2DBC_URL=r2dbc:postgresql://localhost:5432/${POSTGRES_DB}
       - SPRING_R2DBC_USERNAME=${POSTGRES_USER}
       - SPRING_R2DBC_PASSWORD=${SPRING_R2DBC_PASSWORD}
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=${KEYCLOAK_ISSUER_URI_DEV}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${KEYCLOAK_CLIENT_ID}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
@@ -33,8 +33,6 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
     networks:
       - app-network
   senprojectgateway:
@@ -43,10 +41,10 @@ services:
       - .env
     environment:
       - _JAVA_OPTIONS=-Xmx512m -Xms256m
-      - SPRING_PROFILES_ACTIVE=prod,api-docs
+      - SPRING_PROFILES_ACTIVE=dev,api-docs
       - MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED=true
       - SPRING_APPLICATION_NAME=senprojectgateway1
-      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=https://senproject-keycloak-prod.duckdns.org/realms/jhipster
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_OIDC_ISSUER_URI=${KEYCLOAK_ISSUER_URI_DEV}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_ID=${GATEWAY_CLIENT_ID}
       - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_OIDC_CLIENT_SECRET=${GATEWAY_CLIENT_SECRET}
       - JHIPSTER_SLEEP=0
@@ -64,20 +62,22 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-    #      app:
-    #        condition: service_healthy
     networks:
       - app-network
   postgresql:
     extends:
       file: ./postgresql.yml
       service: postgresql
+    ports:
+      - '5432:5432'
     networks:
       - app-network
   keycloak:
     extends:
       file: ./keycloak.yml
       service: keycloak
+    ports:
+      - '9081:8080'
     networks:
       - app-network
   keycloak-db:

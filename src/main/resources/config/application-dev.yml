@@ -52,7 +52,6 @@ spring:
     serialization:
       indent-output: true
 
-
   liquibase:
     # Remove 'faker' if you do not want the sample data to be loaded automatically
     contexts: dev, faker
@@ -62,7 +61,7 @@ spring:
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/SenProjectBackend1
     username: SenProjectBackend1
-    password:
+    password: admin
   thymeleaf:
     cache: false
 

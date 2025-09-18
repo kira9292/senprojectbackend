@@ -15,16 +15,14 @@
 # ===================================================================
 # Conditionally disable springdoc on missing api-docs profile
 ---
-reactive:
-  feign:
-    circuit:
-      breaker:
-        enabled: true
-  # client:
-  #   config:
-  #     default:
-  #       connectTimeout: 5000
-  #       readTimeout: 5000
+spring:
+  config:
+    activate:
+      on-profile: '!api-docs'
+  springdoc:
+    api-docs:
+      enabled: false
+---
 management:
   endpoints:
     web:
@@ -95,12 +93,6 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 30MB
-    config:
-      activate:
-        on-profile: '!api-docs'
-  springdoc:
-    api-docs:
-      enabled: false
   autoconfigure:
     exclude: org.springframework.boot.actuate.autoconfigure.metrics.jdbc.DataSourcePoolMetricsAutoConfiguration
   application:
@@ -140,17 +132,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: http://localhost:9080/realms/jhipster
-    task:
-    execution:
-      thread-name-prefix: sen-project-backend-1-task-
-      pool:
-        core-size: 2
-        max-size: 50
-        queue-capacity: 10000
-    scheduling:
-      thread-name-prefix: sen-project-backend-1-scheduling-
-      pool:
-        size: 2
+
   thymeleaf:
     mode: HTML
   output:

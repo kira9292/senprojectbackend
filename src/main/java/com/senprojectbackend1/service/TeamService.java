@@ -147,4 +147,13 @@ public interface TeamService {
      * @return Mono<TeamDTO> l'équipe mise à jour
      */
     Mono<TeamDTO> updateTeamInfo(Long id, String name, String description, String logo);
+
+    /**
+     * Vérifie si un nom d'équipe existe déjà.
+     *
+     * @param name le nom à vérifier
+     * @param editTeamId l'ID de l'équipe en cours d'édition (optionnel)
+     * @return true si le nom existe déjà, false sinon
+     */
+    Mono<Boolean> checkTeamNameExists(String name, Long editTeamId);
 }

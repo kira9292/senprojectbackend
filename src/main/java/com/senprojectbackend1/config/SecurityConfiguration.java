@@ -80,7 +80,6 @@ public class SecurityConfiguration {
                     .permitAll()
                     .pathMatchers("/api/auth-info")
                     .permitAll()
-                    
                     // Projects publics
                     .pathMatchers("/api/projects", "/api/projects/**")
                     .permitAll()
@@ -90,27 +89,23 @@ public class SecurityConfiguration {
                     .permitAll()
                     .pathMatchers("/api/projects/check-title")
                     .permitAll()
-                    
                     // Teams publics (lecture seule)
                     .pathMatchers("/api/teams", "/api/teams/{id}", "/api/teams/count", "/api/teams/project/*")
                     .permitAll()
-                    
+                    .pathMatchers("/api/teams/check-name")
+                    .permitAll()
                     // Teams privées (nécessitent authentification)
                     .pathMatchers("/api/teams/myteams", "/api/teams/myteams/**")
                     .authenticated()
-                    
                     // Tags publics
                     .pathMatchers("/api/tags", "/api/tags/**")
                     .permitAll()
-                    
                     // Engagement projects publics
                     .pathMatchers("/api/engagement-projects/project/*")
                     .permitAll()
-                    
-                    // Notifications (authentifiées)  
+                    // Notifications (authentifiées)
                     .pathMatchers("/api/notifications/**")
                     .authenticated()
-                    
                     // Endpoints publics de monitoring
                     .pathMatchers("/management/health")
                     .permitAll()
@@ -120,7 +115,6 @@ public class SecurityConfiguration {
                     .permitAll()
                     .pathMatchers("/management/prometheus")
                     .permitAll()
-                    
                     // Endpoints admin uniquement
                     .pathMatchers("/api/admin/**")
                     .hasAuthority(AuthoritiesConstants.ADMIN)
@@ -128,7 +122,6 @@ public class SecurityConfiguration {
                     .hasAuthority(AuthoritiesConstants.ADMIN)
                     .pathMatchers("/management/**")
                     .hasAuthority(AuthoritiesConstants.ADMIN)
-                    
                     // TOUS les autres endpoints API = AUTHENTIFICATION REQUISE
                     .pathMatchers("/api/**")
                     .authenticated()

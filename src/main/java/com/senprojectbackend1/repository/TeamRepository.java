@@ -81,6 +81,12 @@ public interface TeamRepository extends ReactiveCrudRepository<Team, Long>, Team
     @Modifying
     @Query("UPDATE team SET name = :name, description = :description, logo = :logo WHERE id = :id")
     Mono<Integer> updateTeamInfo(Long id, String name, String description, String logo);
+
+    @Query("SELECT COUNT(*) > 0 FROM team WHERE LOWER(name) = LOWER(:name)")
+    Mono<Boolean> existsByName(@Param("name") String name);
+
+    @Query("SELECT COUNT(*) > 0 FROM team WHERE LOWER(name) = LOWER(:name) AND id != :excludeId")
+    Mono<Boolean> existsByNameAndIdNot(@Param("name") String name, @Param("excludeId") Long excludeId);
 }
 
 interface TeamRepositoryInternal {
