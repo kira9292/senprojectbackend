@@ -2,7 +2,7 @@
 name: senprojectbackend1
 services:
   app:
-    image: lyak008/senprojectbackend:v1
+    image: mouhacisse007/senprojectbackend1:v2.0.3
     env_file:
       - .env
     environment:
@@ -30,15 +30,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 40
-    depends_on:
-      postgresql:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
+    #    depends_on:
+    #      postgresql:
+    #        condition: service_healthy
+    #      keycloak:
+    #        condition: service_healthy
     networks:
       - app-network
   senprojectgateway:
-    image: mouhacisse007/senprojectgateway1:v2.1.6
+    #    image: lyak008/senprojectgateway1:v1
+    image: mouhacisse007/senprojectgateway1:v2.2.3
     env_file:
       - .env
     environment:
@@ -61,11 +62,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 40
-    depends_on:
-      keycloak:
-        condition: service_healthy
-    #      app:
+    #    depends_on:
+    #      keycloak:
     #        condition: service_healthy
+    #    #      app:
+    #    #        condition: service_healthy
     networks:
       - app-network
   postgresql:

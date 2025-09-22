@@ -89,7 +89,16 @@ management:
       application: ${spring.application.name}
 
 spring:
+  codec:
+    max-in-memory-size: 50MB
+    max-http-request-header-size: 20MB
+  tomcat:
+    max-swallow-size: 20MB
+    max-http-form-post-size: 20MB
   servlet:
+    session:
+      cookie:
+        http-only: true
     multipart:
       max-file-size: 20MB
       max-request-size: 30MB
@@ -116,6 +125,10 @@ spring:
   main:
     allow-bean-definition-overriding: true
   webflux:
+    multipart:
+      max-in-memory-size: 50MB
+      max-disk-usage-per-part: 50MB
+      max-parts: 100
     problemdetails:
       enabled: true
   security:

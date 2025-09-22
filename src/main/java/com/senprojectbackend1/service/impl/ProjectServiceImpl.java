@@ -481,8 +481,10 @@ public class ProjectServiceImpl implements ProjectService {
                         .createdBy(userLogin)
                         .lastUpdatedBy(userLogin)
                         .team(team);
-                    return enrichProjectWithAssociations(project, dto)
-                        .flatMap(projectRepository::save)
+                    return projectRepository
+                        .save(project)
+                        .flatMap(savedProject -> enrichProjectWithAssociations(savedProject, dto))
+                        .flatMap(enrichedProject -> projectRepository.save(enrichedProject))
                         .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
                         .flatMap(savedProject -> notifyTeamOnCreate(savedProject, userLogin).thenReturn(savedProject))
                         .map(projectMapper::toDto);
@@ -562,6 +564,7 @@ public class ProjectServiceImpl implements ProjectService {
         return updateStatusMono
             .flatMap(projectRepository::save)
             .flatMap(savedProject -> enrichProjectWithAssociations(savedProject, dto))
+            .flatMap(enrichedProject -> projectRepository.save(enrichedProject))
             .flatMap(savedProject -> processAllSections(savedProject, dto).thenReturn(savedProject))
             .flatMap(savedProject -> notifyTeamOnUpdate(savedProject, userLogin).thenReturn(savedProject));
     }
