@@ -31,12 +31,30 @@ public interface TeamService {
     Mono<TeamDTO> update(TeamDTO teamDTO);
 
     /**
+     * Updates a team with membership validation.
+     *
+     * @param teamDTO the entity to update.
+     * @param userLogin the user login performing the update.
+     * @return the persisted entity.
+     */
+    Mono<TeamDTO> updateWithValidation(TeamDTO teamDTO, String userLogin);
+
+    /**
      * Partially updates a team.
      *
      * @param teamDTO the entity to update partially.
      * @return the persisted entity.
      */
     Mono<TeamDTO> partialUpdate(TeamDTO teamDTO);
+
+    /**
+     * Partially updates a team with membership validation.
+     *
+     * @param teamDTO the entity to update partially.
+     * @param userLogin the user login performing the update.
+     * @return the persisted entity.
+     */
+    Mono<TeamDTO> partialUpdateWithValidation(TeamDTO teamDTO, String userLogin);
     /**
      * Find teams by criteria.
      *

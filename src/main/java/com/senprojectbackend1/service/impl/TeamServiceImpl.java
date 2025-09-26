@@ -109,6 +109,37 @@ public class TeamServiceImpl implements TeamService {
     }
 
     @Override
+    public Mono<TeamDTO> updateWithValidation(TeamDTO teamDTO, String userLogin) {
+        LOG.debug("Request to update Team with validation : {}, userLogin: {}", teamDTO, userLogin);
+        return validateUserIsTeamLead(teamDTO.getId(), userLogin).then(update(teamDTO));
+    }
+
+    @Override
+    public Mono<TeamDTO> partialUpdateWithValidation(TeamDTO teamDTO, String userLogin) {
+        LOG.debug("Request to partially update Team with validation : {}, userLogin: {}", teamDTO, userLogin);
+        return validateUserIsTeamLead(teamDTO.getId(), userLogin).then(partialUpdate(teamDTO));
+    }
+
+    private Mono<Void> validateUserIsTeamLead(Long teamId, String userLogin) {
+        return userProfileRepository
+            .findOneByLogin(userLogin)
+            .switchIfEmpty(Mono.error(new RuntimeException("Profil utilisateur non trouvé")))
+            .flatMap(userProfile ->
+                isMember(teamId, userProfile.getId()).flatMap(isMember -> {
+                    if (Boolean.FALSE.equals(isMember)) {
+                        return Mono.error(new RuntimeException("Vous n'êtes pas membre de cette équipe"));
+                    }
+                    return getMemberRole(teamId, userProfile.getId()).flatMap(role -> {
+                        if (!"LEAD".equals(role)) {
+                            return Mono.error(new RuntimeException("Seul un LEAD peut modifier les informations de l'équipe"));
+                        }
+                        return Mono.empty();
+                    });
+                })
+            );
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Flux<TeamDTO> findByCriteria(TeamCriteria criteria, Pageable pageable) {
         LOG.debug("Request to get all Teams by Criteria");

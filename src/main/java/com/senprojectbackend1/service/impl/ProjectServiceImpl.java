@@ -454,6 +454,18 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private Mono<ProjectDTO> createOrUpdateProject(ProjectSubmissionDTO dto, String userLogin, boolean isUpdate) {
+        // Validation commune : vérifier que teamId est fourni
+        if (dto.getTeamId() == null) {
+            return Mono.error(new ProjectBusinessException("Une équipe valide doit être renseignée pour le projet", "project", "noteam"));
+        }
+
+        // Validation commune : vérifier que le titre est valide
+        if (dto.getTitle() == null || dto.getTitle().trim().length() < 3) {
+            return Mono.error(
+                new ProjectBusinessException("Le titre du projet doit contenir au moins 3 caractères", "project", "titleinvalid")
+            );
+        }
+
         if (!isUpdate) {
             // Création : teamId obligatoire et doit exister (la validation de l'existence est gardée ici)
             // Interdire la création directe en PUBLISHED sauf pour ADMIN/SUPPORT (validation déplacée)
@@ -461,6 +473,10 @@ public class ProjectServiceImpl implements ProjectService {
             return teamRepository
                 .findById(dto.getTeamId())
                 .switchIfEmpty(Mono.error(new ProjectBusinessException("L'équipe spécifiée n'existe pas", "project", "noteam")))
+                .flatMap(team ->
+                    // Vérifier que l'utilisateur est membre accepté avec rôle LEAD ou MODIFY
+                    checkUserHasRole(dto.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).thenReturn(team)
+                )
                 .flatMap(team -> {
                     Project project = new Project()
                         .title(dto.getTitle())
@@ -490,7 +506,11 @@ public class ProjectServiceImpl implements ProjectService {
                         .map(projectMapper::toDto);
                 });
         }
-        // Mise à jour
+        // Mise à jour - validation ID obligatoire
+        if (dto.getId() == null) {
+            return Mono.error(new ProjectBusinessException("ID du projet manquant pour la mise à jour", "project", "idmissing"));
+        }
+
         return projectRepository
             .findById(dto.getId())
             .switchIfEmpty(Mono.error(new ProjectBusinessException("Projet non trouvé", "project", "notfound")))
@@ -507,10 +527,14 @@ public class ProjectServiceImpl implements ProjectService {
                                 new ProjectBusinessException("Seul un LEAD peut changer l'équipe du projet", "project", "noright")
                             );
                         }
-                        // Vérifier que la nouvelle équipe existe (gardée ici)
+                        // Vérifier que la nouvelle équipe existe et que l'utilisateur en est membre avec rôle approprié
                         return teamRepository
                             .findById(dto.getTeamId())
                             .switchIfEmpty(Mono.error(new ProjectBusinessException("L'équipe spécifiée n'existe pas", "project", "noteam")))
+                            .flatMap(newTeam ->
+                                // Vérifier que l'utilisateur est membre accepté de la nouvelle équipe avec rôle LEAD ou MODIFY
+                                checkUserHasRole(dto.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).thenReturn(newTeam)
+                            )
                             .flatMap(newTeam -> {
                                 existingProject.team(newTeam);
                                 return updateProjectFieldsAndNotify(existingProject, dto, userLogin);
