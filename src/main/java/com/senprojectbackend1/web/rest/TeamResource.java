@@ -2,6 +2,7 @@ package com.senprojectbackend1.web.rest;
 
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
 import com.senprojectbackend1.repository.TeamRepository;
+import com.senprojectbackend1.security.AuthoritiesConstants;
 import com.senprojectbackend1.service.TeamService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.TeamDTO;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
@@ -213,6 +215,7 @@ public class TeamResource {
      * @param criteria the criteria which the requested entities should match.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of teams in body.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping(value = "", produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<List<TeamDTO>>> getAllTeams(
         TeamCriteria criteria,
