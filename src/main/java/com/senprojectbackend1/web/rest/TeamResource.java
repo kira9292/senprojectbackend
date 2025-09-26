@@ -6,6 +6,7 @@ import com.senprojectbackend1.service.TeamService;
 import com.senprojectbackend1.service.UserProfileService;
 import com.senprojectbackend1.service.dto.TeamDTO;
 import com.senprojectbackend1.service.dto.TeamDetailsDTO;
+import com.senprojectbackend1.service.dto.TeamSimpleDTO;
 import com.senprojectbackend1.web.rest.errors.BadRequestAlertException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -268,20 +269,33 @@ public class TeamResource {
             );
     }
 
+    @GetMapping("/myteamslist")
+    public Mono<ResponseEntity<List<TeamSimpleDTO>>> getMyTeamsList() {
+        LOG.debug("REST request to get teams of current user");
+
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .map(Authentication::getName)
+            .flatMap(userProfileService::getUserProfileSimpleByLogin)
+            .flatMap(user ->
+                teamService
+                    .findAllByMemberLogin(user.getLogin())
+                    .map(teamDTO -> new TeamSimpleDTO(teamDTO.getId(), teamDTO.getName()))
+                    .collectList()
+            )
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/myteams")
     public Mono<ResponseEntity<List<TeamDTO>>> getMyTeams() {
         LOG.debug("REST request to get teams of current user");
 
         return ReactiveSecurityContextHolder.getContext()
             .map(SecurityContext::getAuthentication)
-            .map(Authentication::getName) // => Mono<String> login
-            .flatMap(userProfileService::getUserProfileSimpleByLogin) // => Mono<UserProfileSimpleDTO>
-            .flatMap(
-                user ->
-                    teamService
-                        .findAllByMemberLogin(user.getLogin()) // => Flux<TeamDTO>
-                        .collectList() // Convertit Flux en Mono<List>
-            )
+            .map(Authentication::getName)
+            .flatMap(userProfileService::getUserProfileSimpleByLogin)
+            .flatMap(user -> teamService.findAllByMemberLogin(user.getLogin()).collectList())
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
