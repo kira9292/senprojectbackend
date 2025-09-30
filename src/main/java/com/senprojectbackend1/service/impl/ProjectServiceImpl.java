@@ -420,37 +420,52 @@ public class ProjectServiceImpl implements ProjectService {
                 if (project.getTeamId() == null) {
                     return Mono.error(new ProjectBusinessException("Projet sans équipe", "project", "noteam"));
                 }
-                if ("PUBLISHED".equalsIgnoreCase(newStatus)) {
-                    // Seuls les ADMIN ou SUPPORT peuvent publier
-                    return SecurityUtils.hasCurrentUserAnyOfAuthorities("ROLE_ADMIN", "ROLE_SUPPORT").flatMap(isAdminOrSupport -> {
-                        if (Boolean.FALSE.equals(isAdminOrSupport)) {
+
+                // Vérifier d'abord si l'utilisateur est ADMIN ou SUPPORT (bypass pour tous les statuts)
+                return SecurityUtils.hasCurrentUserAnyOfAuthorities("ROLE_ADMIN", "ROLE_SUPPORT").flatMap(isAdminOrSupport -> {
+                    if (Boolean.TRUE.equals(isAdminOrSupport)) {
+                        // ADMIN/SUPPORT peuvent changer n'importe quel statut
+                        project.setStatus(ProjectStatus.valueOf(newStatus));
+                        return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
+                    } else {
+                        // Utilisateur normal : vérifier les droits d'équipe
+                        if ("PUBLISHED".equalsIgnoreCase(newStatus)) {
                             return Mono.error(
                                 new ProjectBusinessException("Seuls les admins/support peuvent publier", "project", "forbidden")
                             );
                         }
-                        project.setStatus(ProjectStatus.valueOf(newStatus));
-                        return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
-                    });
-                } else {
-                    // Seuls les LEAD ou MODIFY peuvent changer le statut
-                    return checkUserHasRole(project.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).then(
-                        Mono.defer(() -> {
-                            project.setStatus(ProjectStatus.valueOf(newStatus));
-                            return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
-                        })
-                    );
-                }
+                        // Pour les autres statuts, vérifier l'appartenance à l'équipe avec rôle LEAD/MODIFY
+                        return checkUserHasRole(project.getTeamId(), userLogin, Set.of("LEAD", "MODIFY")).then(
+                            Mono.defer(() -> {
+                                project.setStatus(ProjectStatus.valueOf(newStatus));
+                                return projectRepository.updateStatus(project.getId(), newStatus).map(projectMapper::toDto);
+                            })
+                        );
+                    }
+                });
             });
     }
 
     @Override
     public Mono<ProjectDTO> submitProject(ProjectSubmissionDTO dto, String userLogin) {
-        return createOrUpdateProject(dto, userLogin, false);
+        // Vérifier que le titre n'existe pas déjà
+        return checkProjectTitleExists(dto.getTitle(), null).flatMap(titleExists -> {
+            if (Boolean.TRUE.equals(titleExists)) {
+                return Mono.error(new ProjectBusinessException("Un projet avec ce titre existe déjà", "project", "titleexists"));
+            }
+            return createOrUpdateProject(dto, userLogin, false);
+        });
     }
 
     @Override
     public Mono<ProjectDTO> updateSubmittedProject(ProjectSubmissionDTO dto, String userLogin) {
-        return createOrUpdateProject(dto, userLogin, true);
+        // Vérifier que le titre n'existe pas déjà (sauf pour le projet en cours d'édition)
+        return checkProjectTitleExists(dto.getTitle(), dto.getId()).flatMap(titleExists -> {
+            if (Boolean.TRUE.equals(titleExists)) {
+                return Mono.error(new ProjectBusinessException("Un projet avec ce titre existe déjà", "project", "titleexists"));
+            }
+            return createOrUpdateProject(dto, userLogin, true);
+        });
     }
 
     private Mono<ProjectDTO> createOrUpdateProject(ProjectSubmissionDTO dto, String userLogin, boolean isUpdate) {
