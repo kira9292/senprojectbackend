@@ -4,6 +4,7 @@ import com.senprojectbackend1.domain.TeamMembership;
 import com.senprojectbackend1.domain.criteria.TeamCriteria;
 import com.senprojectbackend1.domain.enumeration.MembershipStatus;
 import com.senprojectbackend1.domain.enumeration.NotificationType;
+import com.senprojectbackend1.domain.enumeration.ProjectStatus;
 import com.senprojectbackend1.repository.ProjectRepository;
 import com.senprojectbackend1.repository.TeamMembershipRepository;
 import com.senprojectbackend1.repository.TeamRepository;
@@ -575,5 +576,33 @@ public class TeamServiceImpl implements TeamService {
         }
 
         return teamRepository.existsByName(name.trim());
+    }
+
+    @Override
+    public Flux<TeamMemberDetailsDTO> getAcceptedMembersWithoutRoles(Long teamId) {
+        LOG.debug("Getting accepted members without roles for team: {}", teamId);
+        return teamMembershipRepository
+            .findByTeamIdAndStatus(teamId, "ACCEPTED")
+            .flatMap(membership ->
+                userProfileRepository
+                    .findById(membership.getMembersId())
+                    .map(user -> {
+                        TeamMemberDetailsDTO memberDTO = new TeamMemberDetailsDTO();
+                        memberDTO.setId(user.getId());
+                        memberDTO.setLogin(user.getLogin());
+                        memberDTO.setFirstName(user.getFirstName());
+                        memberDTO.setLastName(user.getLastName());
+                        memberDTO.setEmail(user.getEmail());
+                        memberDTO.setImageUrl(user.getImageUrl());
+                        // Ne pas définir le rôle ni le statut pour la vue publique
+                        return memberDTO;
+                    })
+            );
+    }
+
+    @Override
+    public Flux<ProjectSimple2DTO> getPublishedTeamProjects(Long teamId) {
+        LOG.debug("Request to find published projects for team with id {}", teamId);
+        return getTeamProjects(teamId).filter(project -> ProjectStatus.PUBLISHED.equals(project.getStatus()));
     }
 }

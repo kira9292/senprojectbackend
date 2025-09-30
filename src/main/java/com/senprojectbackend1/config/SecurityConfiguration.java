@@ -90,7 +90,7 @@ public class SecurityConfiguration {
                     .pathMatchers("/api/projects/check-title")
                     .permitAll()
                     // Teams publics (lecture seule)
-                    .pathMatchers("/api/teams", "/api/teams/{id}", "/api/teams/count", "/api/teams/project/*")
+                    .pathMatchers("/api/teams", "/api/teams/{id}", "/api/teams/count", "/api/teams/project/*", "/api/teams/*/public")
                     .permitAll()
                     .pathMatchers("/api/teams/check-name")
                     .permitAll()

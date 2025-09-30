@@ -174,4 +174,20 @@ public interface TeamService {
      * @return true si le nom existe déjà, false sinon
      */
     Mono<Boolean> checkTeamNameExists(String name, Long editTeamId);
+
+    /**
+     * Récupère les membres acceptés d'une équipe sans afficher leurs rôles (pour la vue publique).
+     *
+     * @param teamId l'ID de l'équipe
+     * @return la liste des membres acceptés sans leurs rôles
+     */
+    Flux<com.senprojectbackend1.service.dto.TeamMemberDetailsDTO> getAcceptedMembersWithoutRoles(Long teamId);
+
+    /**
+     * Récupère uniquement les projets publiés d'une équipe (pour la vue publique).
+     *
+     * @param teamId l'ID de l'équipe
+     * @return la liste des projets publiés
+     */
+    Flux<ProjectSimple2DTO> getPublishedTeamProjects(Long teamId);
 }

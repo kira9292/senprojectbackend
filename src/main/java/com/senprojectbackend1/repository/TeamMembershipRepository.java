@@ -7,6 +7,7 @@ import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -55,4 +56,7 @@ public interface TeamMembershipRepository extends ReactiveCrudRepository<TeamMem
         Instant invitedAt,
         Instant respondedAt
     );
+
+    @Query("SELECT * FROM rel_team__members WHERE team_id = :teamId AND status = :status")
+    Flux<TeamMembership> findByTeamIdAndStatus(@Param("teamId") Long teamId, @Param("status") String status);
 }

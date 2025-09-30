@@ -187,7 +187,7 @@ public class TeamResource {
         return teamRepository
             .existsById(id)
             .flatMap(exists -> {
-                if (!exists) {
+                if (Boolean.FALSE.equals(exists)) {
                     return Mono.error(new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
                 }
 
@@ -335,10 +335,7 @@ public class TeamResource {
                                     return teamService.getTeamProjects(id).collectList();
                                 } else {
                                     // Filtrer uniquement les projets published
-                                    return teamService
-                                        .getTeamProjects(id)
-                                        .filter(p -> p.getStatus() != null && p.getStatus().equals("PUBLISHED"))
-                                        .collectList();
+                                    return teamService.getPublishedTeamProjects(id).collectList();
                                 }
                             })
                             .map(projects -> {
@@ -372,6 +369,40 @@ public class TeamResource {
                         detailsDTO.setProjects(new HashSet<>(projects));
                         return detailsDTO;
                     })
+            )
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * {@code GET  /teams/{id}/public} : get the team details for public view (visitors).
+     * Only shows accepted members without their roles, and only published projects.
+     *
+     * @param id the id of the team to retrieve.
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the team details, or with status {@code 404 (Not Found)}.
+     */
+    @GetMapping("/{id}/public")
+    public Mono<ResponseEntity<TeamDetailsDTO>> getTeamPublicView(@PathVariable Long id) {
+        LOG.debug("REST request to get team public view : {}", id);
+        return teamService
+            .findOne(id)
+            .flatMap(team ->
+                // Récupérer uniquement les projets publiés
+                teamService
+                    .getPublishedTeamProjects(id)
+                    .collectList()
+                    .flatMap(projects ->
+                        // Récupérer les membres acceptés sans leurs rôles
+                        teamService
+                            .getAcceptedMembersWithoutRoles(id)
+                            .collectList()
+                            .map(members -> {
+                                TeamDetailsDTO detailsDTO = new TeamDetailsDTO(team);
+                                detailsDTO.setProjects(new HashSet<>(projects));
+                                detailsDTO.setMembers(new HashSet<>(members));
+                                return detailsDTO;
+                            })
+                    )
             )
             .map(ResponseEntity::ok)
             .defaultIfEmpty(ResponseEntity.notFound().build());
