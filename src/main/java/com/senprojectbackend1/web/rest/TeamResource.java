@@ -70,6 +70,7 @@ public class TeamResource {
      * @return the {@link ResponseEntity} with status {@code 201 (Created)} and with body the new teamDTO, or with status {@code 400 (Bad Request)} if the team has already an ID.
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @PostMapping("")
     public Mono<ResponseEntity<TeamDTO>> createTeam(@Valid @RequestBody TeamDTO teamDTO) throws URISyntaxException {
         LOG.debug("REST request to save Team : {}", teamDTO);
@@ -427,17 +428,26 @@ public class TeamResource {
         if (teamDTO.getId() != null) {
             throw new BadRequestAlertException("A new team cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        return teamService
-            .createTeamWithMembers(teamDTO, targetLogins)
-            .map(result -> {
-                try {
-                    return ResponseEntity.created(new URI("/api/teams/" + result.getId()))
-                        .headers(HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString()))
-                        .body(result);
-                } catch (URISyntaxException e) {
-                    throw new RuntimeException(e);
-                }
-            })
+
+        // Vérifier que le nom ne se termine pas par _personal ou _personal✨ sauf si c'est le nom personnel de l'utilisateur
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .map(Authentication::getName)
+            .flatMap(currentLogin ->
+                validatePersonalTeamName(teamDTO.getName(), currentLogin)
+                    .then(teamService.createTeamWithMembers(teamDTO, targetLogins))
+                    .map(result -> {
+                        try {
+                            return ResponseEntity.created(new URI("/api/teams/" + result.getId()))
+                                .headers(
+                                    HeaderUtil.createEntityCreationAlert(applicationName, true, ENTITY_NAME, result.getId().toString())
+                                )
+                                .body(result);
+                        } catch (URISyntaxException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+            )
             .onErrorMap(e -> {
                 LOG.error("Error creating team: {}", e.getMessage());
 
@@ -551,7 +561,12 @@ public class TeamResource {
         // Vérifier si l'utilisateur est membre de l'équipe et a le rôle LEAD
         return ReactiveSecurityContextHolder.getContext()
             .map(securityContext -> securityContext.getAuthentication().getName())
-            .flatMap(login -> userProfileService.getUserProfileSimpleByLogin(login))
+            .flatMap(login ->
+                // Valider le nom de l'équipe si modifié
+                (teamDTO.getName() != null ? validatePersonalTeamName(teamDTO.getName(), login) : Mono.empty()).then(
+                        userProfileService.getUserProfileSimpleByLogin(login)
+                    )
+            )
             .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Profil utilisateur non trouvé")))
             .flatMap(userProfile ->
                 teamService
@@ -608,5 +623,41 @@ public class TeamResource {
                 LOG.error("Error checking team name: {}", e.getMessage());
                 return Mono.just(ResponseEntity.badRequest().body(false));
             });
+    }
+
+    /**
+     * Valide qu'un nom d'équipe ne se termine pas par _personal ou _personal✨ sauf si c'est l'équipe personnelle de l'utilisateur.
+     *
+     * @param teamName le nom de l'équipe à valider
+     * @param userLogin le login de l'utilisateur courant
+     * @return un Mono vide si la validation passe, une erreur sinon
+     */
+    private Mono<Void> validatePersonalTeamName(String teamName, String userLogin) {
+        if (teamName == null || userLogin == null) {
+            return Mono.empty();
+        }
+
+        // Vérifier si le nom se termine par _personal ou _personal✨
+        boolean endsWithPersonal = teamName.endsWith("_personal") || teamName.endsWith("_personal✨");
+
+        if (!endsWithPersonal) {
+            return Mono.empty();
+        }
+
+        // Vérifier si c'est l'équipe personnelle de l'utilisateur
+        boolean isUserPersonalTeam = teamName.equals(userLogin + "_personal") || teamName.equals(userLogin + "_personal✨");
+
+        if (isUserPersonalTeam) {
+            return Mono.empty();
+        }
+
+        // Si le nom se termine par _personal mais ne correspond pas au login de l'utilisateur, lever une erreur
+        return Mono.error(
+            new BadRequestAlertException(
+                "Le nom d'équipe ne peut pas se terminer par '_personal' ou '_personal✨' sauf pour votre équipe personnelle",
+                ENTITY_NAME,
+                "personalnamereserved"
+            )
+        );
     }
 }

@@ -2,6 +2,7 @@ package com.senprojectbackend1.service.impl;
 
 import com.senprojectbackend1.config.Constants;
 import com.senprojectbackend1.domain.Project;
+import com.senprojectbackend1.domain.TeamMembership;
 import com.senprojectbackend1.domain.UserProfile;
 import com.senprojectbackend1.domain.criteria.UserProfileCriteria;
 import com.senprojectbackend1.repository.*;
@@ -51,6 +52,8 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final com.senprojectbackend1.service.CloudinaryService cloudinaryService;
 
+    private final TeamMembershipRepository teamMembershipRepository;
+
     public UserProfileServiceImpl(
         UserProfileRepository userProfileRepository,
         UserProfileMapper userProfileMapper,
@@ -60,7 +63,8 @@ public class UserProfileServiceImpl implements UserProfileService {
         ProjectMapper projectMapper,
         TransactionalOperator transactionalOperator,
         TagRepository tagRepository,
-        com.senprojectbackend1.service.CloudinaryService cloudinaryService
+        com.senprojectbackend1.service.CloudinaryService cloudinaryService,
+        TeamMembershipRepository teamMembershipRepository
     ) {
         this.userProfileRepository = userProfileRepository;
         this.userProfileMapper = userProfileMapper;
@@ -71,6 +75,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         this.transactionalOperator = transactionalOperator;
         this.tagRepository = tagRepository;
         this.cloudinaryService = cloudinaryService;
+        this.teamMembershipRepository = teamMembershipRepository;
     }
 
     @Override
@@ -194,8 +199,40 @@ public class UserProfileServiceImpl implements UserProfileService {
 
         return userProfileRepository
             .save(userProfile)
-            .doOnSuccess(saved -> LOG.info("New user profile created: {}", saved.getLogin()))
+            .flatMap(saved ->
+                createPersonalTeam(saved)
+                    .thenReturn(saved)
+                    .doOnSuccess(u -> LOG.info("New user profile and personal team created: {}", u.getLogin()))
+            )
             .doOnError(error -> LOG.error("Error creating new user profile: {}", error.getMessage()));
+    }
+
+    private Mono<Void> createPersonalTeam(UserProfile userProfile) {
+        LOG.debug("Creating personal team for user: {}", userProfile.getLogin());
+
+        com.senprojectbackend1.domain.Team personalTeam = new com.senprojectbackend1.domain.Team();
+        personalTeam.setName(userProfile.getLogin() + "_personal✨");
+        personalTeam.setDescription("Équipe personnelle de " + userProfile.getLogin());
+        personalTeam.setCreatedAt(Instant.now());
+        personalTeam.setUpdatedAt(Instant.now());
+
+        return teamRepository
+            .save(personalTeam)
+            .flatMap(savedTeam -> {
+                // Ajouter l'utilisateur comme membre LEAD avec statut ACCEPTED
+                TeamMembership membership = new TeamMembership();
+                membership.setTeamId(savedTeam.getId());
+                membership.setMembersId(userProfile.getId());
+                membership.setRole("LEAD");
+                membership.setStatus("ACCEPTED");
+                membership.setInvitedAt(Instant.now());
+                membership.setRespondedAt(Instant.now());
+
+                return teamMembershipRepository.save(membership);
+            })
+            .then()
+            .doOnSuccess(v -> LOG.info("Personal team created for user: {}", userProfile.getLogin()))
+            .doOnError(error -> LOG.error("Error creating personal team: {}", error.getMessage()));
     }
 
     private Mono<UserProfile> updateUserProfileIfNeeded(UserProfile existingUser, Map<String, Object> tokenAttributes) {
