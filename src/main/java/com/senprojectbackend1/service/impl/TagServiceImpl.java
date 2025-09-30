@@ -136,4 +136,15 @@ public class TagServiceImpl implements TagService {
             return pageDTO;
         });
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Flux<TagDTO> searchByName(String name) {
+        LOG.debug("Request to search Tags by name: {}", name);
+        return tagRepository
+            .findAll()
+            .filter(tag -> Boolean.FALSE.equals(tag.getIsForbidden()))
+            .filter(tag -> tag.getName() != null && tag.getName().toLowerCase().contains(name.toLowerCase()))
+            .map(tagMapper::toDto);
+    }
 }

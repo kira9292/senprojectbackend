@@ -85,4 +85,12 @@ public interface TagService {
      * @return a page of tags with their project count
      */
     Mono<PageDTO<TagWithCountDTO>> getPaginatedTags(int page, int size);
+
+    /**
+     * Search tags by name (only non-forbidden tags).
+     *
+     * @param name the name to search for
+     * @return the list of matching tags
+     */
+    Flux<TagDTO> searchByName(String name);
 }

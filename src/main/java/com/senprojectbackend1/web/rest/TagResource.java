@@ -255,6 +255,7 @@ public class TagResource {
      * @param id the id of the project
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body
      */
+    @Secured({ AuthoritiesConstants.ADMIN, AuthoritiesConstants.SUPPORT })
     @GetMapping("/tags/project/{id}")
     public Mono<ResponseEntity<List<Tag>>> getProjectTags(@PathVariable Long id) {
         LOG.debug("REST request to get tags for Project : {}", id);
@@ -279,5 +280,17 @@ public class TagResource {
     ) {
         LOG.debug("REST request to get paginated Tags with count");
         return tagService.getPaginatedTags(page, size).map(ResponseEntity::ok);
+    }
+
+    /**
+     * {@code GET  /tags/search} : search tags by name (only non-forbidden tags).
+     *
+     * @param name the name to search for
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the list of tags in body
+     */
+    @GetMapping("/tags/search")
+    public Mono<ResponseEntity<List<TagDTO>>> searchTags(@RequestParam String name) {
+        LOG.debug("REST request to search Tags by name: {}", name);
+        return tagService.searchByName(name).collectList().map(ResponseEntity::ok);
     }
 }
