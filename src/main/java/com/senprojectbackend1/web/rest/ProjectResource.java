@@ -298,6 +298,7 @@ public class ProjectResource {
 
     /**
      * {@code GET  /projects/:id/with-sections} : get the "id" project with its sections.
+     * Accessible publiquement (sans authentification).
      *
      * @param id the id of the project to retrieve with its sections.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body the projectDTO with sections, or with status {@code 404 (Not Found)}.
@@ -309,6 +310,10 @@ public class ProjectResource {
         return ReactiveSecurityContextHolder.getContext()
             .map(securityContext -> securityContext.getAuthentication().getName())
             .flatMap(login -> projectService.findOneWithSectionsAndIncrementViews(id, login).map(ResponseEntity::ok))
+            .switchIfEmpty(
+                // Si pas d'utilisateur connecté, retourner le projet sans incrémenter les vues
+                projectService.findOneWithSections(id).map(ResponseEntity::ok)
+            )
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 

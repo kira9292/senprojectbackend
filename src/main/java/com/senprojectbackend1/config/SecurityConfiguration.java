@@ -100,8 +100,17 @@ public class SecurityConfiguration {
                     // Tags publics
                     .pathMatchers("/api/tags", "/api/tags/**")
                     .permitAll()
+                    // External links publics
+                    .pathMatchers("/api/external-links/project/*")
+                    .permitAll()
+                    // Project galleries publics
+                    .pathMatchers("/api/project-galleries/project/*")
+                    .permitAll()
                     // Engagement projects publics
                     .pathMatchers("/api/engagement-projects/project/*")
+                    .permitAll()
+                    // Comments publics (lecture seule)
+                    .pathMatchers("/api/comments/project/*")
                     .permitAll()
                     // Notifications (authentifiées)
                     .pathMatchers("/api/notifications/**")
