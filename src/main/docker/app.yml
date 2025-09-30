@@ -2,7 +2,7 @@
 name: senprojectbackend1
 services:
   app:
-    image: mouhacisse007/senprojectbackend1:v2.0.3
+    image: mouhacisse007/senprojectbackend1:v2.0.4
     env_file:
       - .env
     environment:
@@ -39,7 +39,7 @@ services:
       - app-network
   senprojectgateway:
     #    image: lyak008/senprojectgateway1:v1
-    image: mouhacisse007/senprojectgateway1:v2.2.3
+    image: mouhacisse007/senprojectgateway1:v2.2.4
     env_file:
       - .env
     environment:
